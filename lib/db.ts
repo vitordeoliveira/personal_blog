@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-const dbPath = path.join(process.cwd(), "blog.db");
+const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "blog.db");
 
 // Singleton database instance
 let dbInstance: Database.Database | null = null;
