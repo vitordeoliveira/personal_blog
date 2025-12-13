@@ -4,6 +4,7 @@ nixPkgs = ["python3", "gcc", "gnumake"]
 [phases.install]
 cmds = [
   "python3 --version",
+  "npm install -g pnpm",
   "pnpm install"
 ]
 
