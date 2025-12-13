@@ -1,0 +1,309 @@
+# Base Design System Rules
+
+This document defines the base design system rules for all projects, based on the OKLCH color system and CSS custom properties pattern.
+
+## Color System Architecture
+
+### Color Format: OKLCH
+All colors MUST use the OKLCH color space format:
+```css
+oklch(lightness chroma hue)
+```
+
+**Why OKLCH:**
+- Perceptually uniform (equal steps = equal perceived difference)
+- Better color interpolation
+- Predictable color mixing
+- Better accessibility for colorblind users
+
+### Color Categories
+
+#### 1. Neutral Colors (Backgrounds, Text, Borders)
+Neutral colors use `chroma: 0` (no saturation):
+```css
+oklch(lightness 0 0)
+```
+
+**Background Colors:**
+- `--bg-dark`: Darkest background (0.08-0.15 lightness)
+- `--bg`: Main background (0.12-0.92 lightness)
+- `--bg-light`: Lightest background (0.18-0.96 lightness)
+
+**Text Colors:**
+- `--text`: Primary text (0.12-0.95 lightness, high contrast)
+- `--text-muted`: Secondary/muted text (0.4-0.6 lightness)
+
+**Border Colors:**
+- `--border`: Primary borders (0.4-0.5 lightness)
+- `--border-muted`: Subtle borders (0.25-0.75 lightness)
+
+#### 2. Action Colors (Interactive Elements)
+Action colors have chroma and hue values:
+```css
+oklch(lightness chroma hue)
+```
+
+**Primary Action:**
+- Light mode: `oklch(0.55 0.2 250)` (blue)
+- Dark mode: `oklch(0.65 0.2 250)` (lighter blue)
+
+**Secondary Action:**
+- Light mode: `oklch(0.6 0.15 300)` (purple)
+- Dark mode: `oklch(0.7 0.15 300)` (lighter purple)
+
+#### 3. Alert Colors (Status Indicators)
+Alert colors for feedback and status:
+- **Danger**: `oklch(0.55-0.65 0.22 25)` (red)
+- **Warning**: `oklch(0.75-0.8 0.15 85)` (yellow)
+- **Success**: `oklch(0.6-0.7 0.18 145)` (green)
+- **Info**: `oklch(0.6-0.7 0.15 220)` (blue)
+
+## CSS Variable Structure
+
+### Root Variables (Base Definitions)
+Define all color variables in `:root`:
+```css
+:root {
+  /* Background colors (neutral, oklch) */
+  --bg-dark: oklch(0.15 0 0);
+  --bg: oklch(0.92 0 0);
+  --bg-light: oklch(0.96 0 0);
+
+  /* Text colors (neutral, oklch) */
+  --text: oklch(0.12 0 0);
+  --text-muted: oklch(0.4 0 0);
+
+  /* Border colors (neutral, oklch) */
+  --border: oklch(0.5 0 0);
+  --border-muted: oklch(0.75 0 0);
+
+  /* Action colors (not neutral) */
+  --action-primary: oklch(0.55 0.2 250);
+  --action-secondary: oklch(0.6 0.15 300);
+
+  /* Alert colors (not neutral) */
+  --alert-danger: oklch(0.55 0.22 25);
+  --alert-warning: oklch(0.75 0.15 85);
+  --alert-success: oklch(0.6 0.18 145);
+  --alert-info: oklch(0.6 0.15 220);
+}
+```
+
+### Dark Mode Implementation
+
+#### Method 1: Media Query (System Preference)
+```css
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    /* Override variables for dark mode */
+    --bg: oklch(0.12 0 0);
+    --text: oklch(0.95 0 0);
+    /* ... */
+  }
+}
+```
+
+**Important:** Use `:root:not([data-theme])` to allow manual theme override.
+
+#### Method 2: Data Attribute (Manual Toggle)
+```css
+[data-theme="dark"] {
+  /* Dark mode variables */
+}
+
+[data-theme="light"] {
+  /* Light mode variables (explicit) */
+}
+```
+
+**Theme Toggle Pattern:**
+- Check `localStorage` for saved preference
+- Fall back to system preference if no saved preference
+- Set `data-theme` attribute on `<html>` element
+- Use `:not([data-theme])` in media query to allow override
+
+### Tailwind Integration
+
+Use `@theme` directive to map CSS variables to Tailwind:
+```css
+@theme {
+  /* Disable all default colors */
+  --color-*: initial;
+
+  /* Background colors */
+  --color-bg-dark: var(--bg-dark);
+  --color-bg: var(--bg);
+  --color-bg-light: var(--bg-light);
+
+  /* Text colors */
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+
+  /* Border colors */
+  --color-border: var(--border);
+  --color-border-muted: var(--border-muted);
+
+  /* Action colors */
+  --color-action-primary: var(--action-primary);
+  --color-action-secondary: var(--action-secondary);
+
+  /* Alert colors */
+  --color-alert-danger: var(--alert-danger);
+  --color-alert-warning: var(--alert-warning);
+  --color-alert-success: var(--alert-success);
+  --color-alert-info: var(--alert-info);
+}
+```
+
+**Usage in Tailwind:**
+- `bg-bg`, `bg-bg-light`, `bg-bg-dark`
+- `text-text`, `text-text-muted`
+- `border-border`, `border-border-muted`
+- `bg-action-primary`, `text-action-secondary`
+- `bg-alert-danger`, `text-alert-warning`, etc.
+
+## Lightness Guidelines
+
+### Light Mode
+- **Backgrounds**: 0.85-0.96 (very light)
+- **Text**: 0.10-0.15 (very dark, high contrast)
+- **Muted text**: 0.35-0.45 (medium gray)
+- **Borders**: 0.50-0.75 (medium gray)
+
+### Dark Mode
+- **Backgrounds**: 0.08-0.18 (very dark)
+- **Text**: 0.90-0.95 (very light, high contrast)
+- **Muted text**: 0.55-0.65 (medium gray)
+- **Borders**: 0.25-0.40 (medium gray)
+
+### Contrast Ratios
+- **Text on background**: Minimum 4.5:1 (WCAG AA)
+- **Large text**: Minimum 3:1 (WCAG AA)
+- **Interactive elements**: Minimum 3:1 contrast
+
+## Color Adjustment Rules
+
+### Lightness Adjustments
+When creating dark mode variants:
+- **Backgrounds**: Reduce lightness by 0.70-0.80 (e.g., 0.92 → 0.12)
+- **Text**: Increase lightness by 0.80-0.85 (e.g., 0.12 → 0.95)
+- **Action colors**: Increase lightness by 0.10-0.15 for better visibility
+- **Alert colors**: Adjust lightness for optimal contrast in both modes
+
+### Chroma Guidelines
+- **Neutral colors**: Always `0` (no saturation)
+- **Action colors**: 0.15-0.25 (moderate saturation)
+- **Alert colors**: 0.15-0.22 (moderate saturation)
+- Avoid high chroma (>0.3) for accessibility
+
+### Hue Guidelines
+- **Primary action**: 220-260 (blue range)
+- **Secondary action**: 280-320 (purple range)
+- **Danger**: 15-35 (red range)
+- **Warning**: 70-100 (yellow range)
+- **Success**: 130-160 (green range)
+- **Info**: 200-240 (blue range)
+
+## Font System
+
+### Font Variables
+```css
+@theme {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+```
+
+### Body Font
+```css
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif; /* Fallback */
+}
+```
+
+**Note:** Use Next.js font optimization for production fonts.
+
+## Implementation Checklist
+
+When implementing this design system in a new project:
+
+1. ✅ Import Tailwind CSS
+2. ✅ Define `:root` variables with OKLCH colors
+3. ✅ Implement dark mode via media query with `:not([data-theme])`
+4. ✅ Implement dark mode via `[data-theme="dark"]` attribute
+5. ✅ Implement light mode via `[data-theme="light"]` attribute
+6. ✅ Map variables to Tailwind using `@theme` directive
+7. ✅ Set `--color-*: initial` to disable default Tailwind colors
+8. ✅ Apply base styles to `body` element
+9. ✅ Create theme toggle component (if needed)
+10. ✅ Test contrast ratios in both modes
+11. ✅ Verify all color combinations meet WCAG AA standards
+
+## Usage Examples
+
+### Background Colors
+```tsx
+<div className="bg-bg">Main background</div>
+<div className="bg-bg-light">Light background</div>
+<div className="bg-bg-dark">Dark background</div>
+```
+
+### Text Colors
+```tsx
+<p className="text-text">Primary text</p>
+<p className="text-text-muted">Muted text</p>
+```
+
+### Border Colors
+```tsx
+<div className="border border-border">Primary border</div>
+<div className="border border-border-muted">Subtle border</div>
+```
+
+### Action Colors
+```tsx
+<button className="bg-action-primary text-bg-light">
+  Primary Action
+</button>
+<button className="bg-action-secondary text-bg-light">
+  Secondary Action
+</button>
+```
+
+### Alert Colors
+```tsx
+<div className="bg-alert-danger text-bg-light">Error</div>
+<div className="bg-alert-warning text-text">Warning</div>
+<div className="bg-alert-success text-bg-light">Success</div>
+<div className="bg-alert-info text-bg-light">Info</div>
+```
+
+### Opacity Modifiers
+```tsx
+<div className="bg-action-primary/20">20% opacity</div>
+<div className="bg-action-primary/50">50% opacity</div>
+<div className="border-action-primary/30">30% border opacity</div>
+```
+
+## Best Practices
+
+1. **Always use CSS variables** - Never hardcode colors
+2. **Use OKLCH format** - Maintains perceptual uniformity
+3. **Test both themes** - Ensure all combinations work
+4. **Maintain contrast** - Follow WCAG guidelines
+5. **Use opacity modifiers** - For subtle backgrounds and borders
+6. **Prefer neutral colors** - For backgrounds and text
+7. **Reserve colored variables** - For actions and alerts only
+8. **Document color choices** - Explain why specific hues/chroma were chosen
+
+## Migration Notes
+
+When migrating existing projects:
+1. Convert all hex/rgb colors to OKLCH
+2. Replace hardcoded colors with CSS variables
+3. Update Tailwind config to use `@theme` directive
+4. Test dark mode compatibility
+5. Verify contrast ratios
+6. Update component classes to use new color system
