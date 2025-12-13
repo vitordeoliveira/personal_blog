@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { getAllPosts } from "@/lib/posts";
 
+// Force dynamic rendering to ensure views are always up-to-date
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const allPosts = await getAllPosts();
   const recentPosts = allPosts.slice(0, 5);
