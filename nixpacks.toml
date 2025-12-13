@@ -1,10 +1,9 @@
 [phases.setup]
-nixPkgs = ["python3", "gcc", "gnumake", "nodejs", "pnpm"]
+nixPkgs = ["python3", "gcc", "gnumake", "nodejs", "pnpm", "sqlite"]
 
 [phases.install]
 cmds = [
   "python3 --version",
-  "npm install -g pnpm",
   "pnpm install"
 ]
 
