@@ -1,0 +1,15 @@
+[phases.setup]
+nixPkgs = ["nodejs-20_x", "python3", "gcc", "make"]
+
+[phases.install]
+cmds = [
+  "python3 --version",
+  "pnpm install"
+]
+
+[phases.build]
+cmds = ["pnpm run build"]
+
+[start]
+cmd = "pnpm start"
+
