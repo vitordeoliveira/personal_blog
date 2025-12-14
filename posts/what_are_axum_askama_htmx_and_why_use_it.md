@@ -9,8 +9,6 @@ date: "2024-04-01t17:52:00"
 ready: true
 ---
 
-# What are Axum + Askama + HTMX and Why use it?
-
 I am a fan of some tools and technologies, I think all my blog posts make this clear to everyone.
 
 Today, I will show you guys [what is HTMX](#what-is-htmx) and [why use these tools](#why-use-these-tools) to use **AXUM + HTMX + Askama** technologies on Rust.

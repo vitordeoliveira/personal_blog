@@ -10,8 +10,6 @@ date: "2024-03-14t17:52:00"
 ready: true
 ---
 
-# How host a rustlang server for free in the google cloud plataform?
-
 In the Rust language journey, after learning the basics and being able to
 create a server, the second thought comes to mind... how do I do it available
 for the internet, how should I configure my server for the internet and what is

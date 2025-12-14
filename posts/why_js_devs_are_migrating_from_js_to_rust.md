@@ -9,8 +9,6 @@ date: "2024-03-16t12:58:00"
 ready: true
 ---
 
-# Why Js devs are migrating from Js to Rust?
-
 > why I make the choice of migrating from JS after 8 years, to full Rust on my projects?
 
 Increasingly, we've seen many Rust developers joining the community

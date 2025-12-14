@@ -7,8 +7,6 @@ date: "2024-04-03t20:35:00"
 ready: true
 ---
 
-# How use Axum + Askama + HTMX?
-
 Ok, I already have a post explaining [What is and Why to use Askama, HTMX, and Axum](/blog/what_are_axum_askama_htmx_and_why_use_it).
 
 Now here is the place where the children cry and the mom doesn't see (Brazilian expression)

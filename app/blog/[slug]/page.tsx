@@ -43,7 +43,7 @@ export default async function PostPage({
           ← Back to Blog
         </Link>
 
-        <article className="prose prose-lg max-w-none">
+        <article className="prose prose-lg max-w-none rounded-lg bg-bg-light px-12 py-8 shadow-sm">
           <header className="mb-8">
             <h1 className="mb-2 text-4xl font-bold text-text">{post.title}</h1>
             {post.subtitle && (
