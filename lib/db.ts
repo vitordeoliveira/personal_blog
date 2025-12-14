@@ -1,7 +1,8 @@
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 
-const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "blog.db");
+const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "blog.db");
 
 // Singleton database instance
 let dbInstance: Database.Database | null = null;
@@ -9,6 +10,12 @@ let dbInstance: Database.Database | null = null;
 // Initialize database
 function getDb(): Database.Database {
   if (!dbInstance) {
+    // Ensure the directory exists
+    const dbDir = path.dirname(dbPath);
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+    
     dbInstance = new Database(dbPath);
     
     // Create table if it doesn't exist
