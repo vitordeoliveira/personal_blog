@@ -76,3 +76,17 @@ export function getAllPostMetadata(): Record<string, { views: number }> {
   return metadata;
 }
 
+// Update post metadata views
+export function updatePostViews(slug: string, views: number): void {
+  const db = getDb();
+  
+  // Initialize if doesn't exist
+  initializePostMetadata(slug);
+  
+  // Update views
+  const stmt = db.prepare(
+    "UPDATE post_metadata SET views = ?, updated_at = CURRENT_TIMESTAMP WHERE slug = ?"
+  );
+  stmt.run(views, slug);
+}
+

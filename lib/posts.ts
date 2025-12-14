@@ -110,3 +110,57 @@ export async function getAllPosts(): Promise<Post[]> {
     });
 }
 
+// Get all posts including unpublished (for admin)
+export async function getAllPostsForAdmin(): Promise<Post[]> {
+  const slugs = getPostSlugs();
+  const allMetadata = getAllPostMetadata();
+  
+  const posts = await Promise.all(
+    slugs.map(async (slug) => {
+      const fullPath = path.join(postsDirectory, `${slug}.md`);
+      
+      if (!fs.existsSync(fullPath)) {
+        return null;
+      }
+
+      const fileContents = fs.readFileSync(fullPath, "utf8");
+      const { data, content } = matter(fileContents);
+
+      const processedContent = await remark().use(html).process(content);
+      const contentHtml = processedContent.toString();
+
+      // Get or initialize metadata
+      const metadata = allMetadata[slug];
+      const views = metadata?.views || 0;
+
+      // Include all posts, even unpublished
+      const ready = data.ready !== undefined ? data.ready : false;
+
+      const post: Post = {
+        slug,
+        title: data.title || "",
+        subtitle: data.subtitle,
+        description: data.description,
+        date: data.date || "",
+        tags: data.tags || [],
+        ready,
+        content,
+        contentHtml,
+        views,
+      };
+      
+      return post;
+    })
+  );
+
+  return posts
+    .filter((post): post is Post => post !== null)
+    .sort((a, b) => {
+      if (a.date < b.date) {
+        return 1;
+      } else {
+        return -1;
+      }
+    });
+}
+
