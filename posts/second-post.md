@@ -4,7 +4,7 @@ subtitle: "A quick explanation about how implement, Askama and HTMX"
 description: "In a post before I explain why and what is Askama, Axum and HTMX, now we will implement then."
 date: "2024-01-20"
 tags: ["rust", "axum"]
-ready: true
+ready: false
 ---
 
 # My Second Post
