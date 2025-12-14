@@ -1,7 +1,8 @@
 ---
 title: "Welcome to My Blog"
+description: "This is the first post on my new blog. I'm excited to share my thoughts and experiences with you."
 date: "2024-01-15"
-excerpt: "This is the first post on my new blog. I'm excited to share my thoughts and experiences with you."
+ready: true
 ---
 
 # Welcome to My Blog

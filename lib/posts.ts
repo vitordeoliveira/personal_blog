@@ -9,8 +9,11 @@ const postsDirectory = path.join(process.cwd(), "posts");
 
 export interface PostMetadata {
   title: string;
+  subtitle?: string;
+  description?: string;
   date: string;
-  excerpt?: string;
+  tags?: string[];
+  ready?: boolean;
 }
 
 export interface Post extends PostMetadata {
@@ -50,6 +53,14 @@ export async function getPostBySlug(
   const metadata = getPostMetadata(slug);
   const views = metadata?.views || 0;
 
+  // If ready is undefined, treat it as false (not published)
+  const ready = data.ready !== undefined ? data.ready : false;
+
+  // Don't return unpublished posts
+  if (ready !== true) {
+    return null;
+  }
+
   // Track view if requested
   if (trackView) {
     incrementViews(slug);
@@ -58,8 +69,11 @@ export async function getPostBySlug(
   return {
     slug,
     title: data.title || "",
+    subtitle: data.subtitle,
+    description: data.description,
     date: data.date || "",
-    excerpt: data.excerpt || "",
+    tags: data.tags || [],
+    ready,
     content,
     contentHtml,
     views: trackView ? views + 1 : views,
@@ -86,6 +100,7 @@ export async function getAllPosts(): Promise<Post[]> {
 
   return posts
     .filter((post): post is Post => post !== null)
+    .filter((post) => post.ready === true) // Only show published posts
     .sort((a, b) => {
       if (a.date < b.date) {
         return 1;

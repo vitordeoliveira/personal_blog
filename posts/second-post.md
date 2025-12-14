@@ -1,7 +1,10 @@
 ---
 title: "My Second Post"
+subtitle: "A quick explanation about how implement, Askama and HTMX"
+description: "In a post before I explain why and what is Askama, Axum and HTMX, now we will implement then."
 date: "2024-01-20"
-excerpt: "This is my second blog post. I'm exploring different topics and sharing my journey."
+tags: ["rust", "axum"]
+ready: true
 ---
 
 # My Second Post

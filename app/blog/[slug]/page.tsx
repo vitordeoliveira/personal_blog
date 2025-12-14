@@ -45,8 +45,14 @@ export default async function PostPage({
 
         <article className="prose prose-lg max-w-none">
           <header className="mb-8">
-            <h1 className="mb-4 text-4xl font-bold text-text">{post.title}</h1>
-            <div className="flex items-center gap-4 text-sm text-text-muted">
+            <h1 className="mb-2 text-4xl font-bold text-text">{post.title}</h1>
+            {post.subtitle && (
+              <p className="mb-4 text-xl font-medium text-text-muted">{post.subtitle}</p>
+            )}
+            {post.description && (
+              <p className="mb-4 text-lg text-text-muted">{post.description}</p>
+            )}
+            <div className="mb-4 flex flex-wrap items-center gap-4 text-sm text-text-muted">
               <time dateTime={post.date}>
                 {new Date(post.date).toLocaleDateString("en-US", {
                   year: "numeric",
@@ -57,6 +63,18 @@ export default async function PostPage({
               <span>•</span>
               <PostViewTracker slug={slug} initialViews={post.views} />
             </div>
+            {post.tags && post.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {post.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full bg-action-primary/10 px-3 py-1 text-xs font-medium text-action-primary"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </header>
 
           <div
