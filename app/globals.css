@@ -187,6 +187,20 @@ body {
   font-size: 0.875em;
 }
 
+/* Light mode code blocks - use lighter background with dark text */
+:root:not([data-theme="dark"]) .prose code,
+[data-theme="light"] .prose code {
+  background: oklch(0.88 0 0);
+  color: oklch(0.12 0 0);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .prose code {
+    background: var(--bg-dark);
+    color: var(--text);
+  }
+}
+
 .prose pre {
   background: var(--bg-dark);
   color: var(--text);
@@ -195,6 +209,20 @@ body {
   overflow-x: auto;
   margin-top: 1.5em;
   margin-bottom: 1.5em;
+}
+
+/* Light mode pre blocks - use lighter background with dark text */
+:root:not([data-theme="dark"]) .prose pre,
+[data-theme="light"] .prose pre {
+  background: oklch(0.88 0 0);
+  color: oklch(0.12 0 0);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .prose pre {
+    background: var(--bg-dark);
+    color: var(--text);
+  }
 }
 
 .prose pre code {
