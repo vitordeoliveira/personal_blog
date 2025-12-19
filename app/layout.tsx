@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Vitor de Oliveira | vitor.ws",
   description: "Blog by Vitor de Oliveira - JavaScript, Rust & AI specialist with 10+ years of experience",
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export default function RootLayout({
