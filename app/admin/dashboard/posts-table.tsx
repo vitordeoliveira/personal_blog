@@ -181,3 +181,4 @@ export default function PostsTable({ posts }: PostsTableProps) {
   );
 }
 
+
