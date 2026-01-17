@@ -76,3 +76,96 @@ export async function updatePostMetadataViews(slug: string, views: number) {
   }
 }
 
+// Sales Agent API functions
+const SALES_AGENT_API_KEY = process.env.SALES_AGENT_API_KEY;
+const SALES_AGENT_URL = process.env.SALES_AGENT_URL;
+
+export interface Agent {
+  id: number;
+  name: string;
+  salesBehavior: string;
+  description: string;
+  status: string;
+}
+
+export interface ChatResponse {
+  success: boolean;
+  response?: string;
+  agent?: {
+    id: number;
+    name: string;
+    salesBehavior: string;
+  };
+  error?: string;
+}
+
+// Get the agent (should return only one)
+export async function getAgent(): Promise<{ success: boolean; agent?: Agent; error?: string }> {
+  try {
+    if (!SALES_AGENT_API_KEY || !SALES_AGENT_URL) {
+      return { success: false, error: "Sales agent API not configured" };
+    }
+
+    const response = await fetch(`${SALES_AGENT_URL}/api/agents`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${SALES_AGENT_API_KEY}`,
+      },
+    });
+
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    
+    if (!data.success || !data.agents || data.agents.length === 0) {
+      return { success: false, error: "No agent found" };
+    }
+
+    // Return the first agent (should be the only one)
+    return { success: true, agent: data.agents[0] };
+  } catch (error) {
+    console.error("Failed to fetch agent:", error);
+    return { success: false, error: "Failed to fetch agent" };
+  }
+}
+
+// Chat with the agent
+export async function chatWithAgent(
+  agentId: number,
+  message: string
+): Promise<ChatResponse> {
+  try {
+    if (!SALES_AGENT_API_KEY || !SALES_AGENT_URL) {
+      return { success: false, error: "Sales agent API not configured" };
+    }
+
+    if (!message || message.trim().length === 0) {
+      return { success: false, error: "Message is required" };
+    }
+
+    const response = await fetch(`${SALES_AGENT_URL}/api/agents/${agentId}/chat`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SALES_AGENT_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Failed to chat with agent:", error);
+    return { success: false, error: "Failed to send message" };
+  }
+}
+

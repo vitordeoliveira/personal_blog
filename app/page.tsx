@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getAllPosts } from "@/lib/posts";
+import ChatButton from "@/app/components/chat-button";
 
 // Force dynamic rendering to ensure views are always up-to-date
 export const dynamic = 'force-dynamic';
@@ -67,7 +68,8 @@ export default async function Home() {
               </p>
             </div>
 
-            <div className="mt-12 flex justify-center">
+            <div className="mt-12 flex flex-wrap justify-center gap-4">
+              <ChatButton />
               <Link
                 href="/blog"
                 className="group relative rounded-full bg-action-primary px-10 py-4 text-lg font-semibold text-bg-light shadow-lg transition-all hover:scale-105 hover:shadow-xl hover:opacity-95"
