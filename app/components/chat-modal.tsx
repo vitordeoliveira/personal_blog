@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { getAgent, chatWithAgent, type Agent } from "@/app/actions";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
   role: "user" | "agent";
@@ -216,9 +218,17 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
                         : "bg-bg border border-border text-text"
                     }`}
                   >
-                    <p className="whitespace-pre-wrap break-words">
-                      {message.content}
-                    </p>
+                    {message.role === "agent" ? (
+                      <div className="prose prose-chat">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap break-words">
+                        {message.content}
+                      </p>
+                    )}
                     <p
                       className={`mt-1 text-xs ${
                         message.role === "user"

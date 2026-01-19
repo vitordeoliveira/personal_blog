@@ -263,3 +263,49 @@ body {
 .prose em {
   font-style: italic;
 }
+
+/* Chat-specific prose styles - more compact for chat messages */
+.prose-chat h1,
+.prose-chat h2,
+.prose-chat h3,
+.prose-chat h4,
+.prose-chat h5,
+.prose-chat h6 {
+  margin-top: 0.75em;
+  margin-bottom: 0.5em;
+}
+
+.prose-chat p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose-chat p:first-child {
+  margin-top: 0;
+}
+
+.prose-chat p:last-child {
+  margin-bottom: 0;
+}
+
+.prose-chat ul,
+.prose-chat ol {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  padding-left: 1.25em;
+}
+
+.prose-chat li {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+.prose-chat pre {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  padding: 0.75em;
+}
+
+.prose-chat blockquote {
+  margin: 0.75em 0;
+}
