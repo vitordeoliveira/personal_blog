@@ -309,3 +309,26 @@ body {
 .prose-chat blockquote {
   margin: 0.75em 0;
 }
+
+/* Gradient text utility */
+.text-gradient {
+  background: linear-gradient(135deg, var(--action-primary), hsl(35 95% 55%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glow background utility */
+.bg-glow {
+  background: radial-gradient(circle, hsl(25 95% 53% / 0.15), transparent 70%);
+}
+
+/* Gradient primary background utility */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, var(--action-primary), hsl(35 95% 55%));
+}
+
+/* Glow shadow utility */
+.shadow-glow {
+  box-shadow: 0 0 40px hsl(25 95% 53% / 0.2);
+}
