@@ -168,4 +168,3 @@ export async function chatWithAgent(
     return { success: false, error: "Failed to send message" };
   }
 }
-

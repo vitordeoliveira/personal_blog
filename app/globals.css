@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  /* Background colors (neutral, oklch) */
-  --bg-dark: oklch(0.15 0 0);
-  --bg: oklch(0.92 0 0);
-  --bg-light: oklch(0.96 0 0);
+  /* Background colors (from vitor-s-bright-insights) */
+  --bg-dark: hsl(30 20% 94%);
+  --bg: hsl(30 25% 98%);
+  --bg-light: hsl(30 20% 99%);
 
-  /* Text colors (neutral, oklch) */
-  --text: oklch(0.12 0 0);
-  --text-muted: oklch(0.4 0 0);
+  /* Text colors (from vitor-s-bright-insights) */
+  --text: hsl(20 10% 10%);
+  --text-muted: hsl(20 10% 45%);
 
-  /* Border colors (warm with subtle orange tint in light mode) */
-  --border: oklch(0.5 0.03 60);
-  --border-muted: oklch(0.75 0.02 60);
+  /* Border colors (from vitor-s-bright-insights) */
+  --border: hsl(30 15% 88%);
+  --border-muted: hsl(30 15% 92%);
 
-  /* Action colors (not neutral) */
-  --action-primary: oklch(0.6 0.2 60);
-  --action-secondary: oklch(0.6 0.15 300);
+  /* Action colors (from vitor-s-bright-insights) */
+  --action-primary: hsl(25 95% 53%);
+  --action-secondary: hsl(30 20% 94%);
 
-  /* Alert colors (not neutral) */
-  --alert-danger: oklch(0.55 0.22 25);
+  /* Alert colors */
+  --alert-danger: hsl(0 84% 60%);
   --alert-warning: oklch(0.75 0.15 85);
   --alert-success: oklch(0.6 0.18 145);
   --alert-info: oklch(0.6 0.15 220);
@@ -28,42 +28,42 @@
 /* Dark mode via media query (system preference) */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --bg-dark: oklch(0.08 0 0);
-    --bg: oklch(0.12 0 0);
-    --bg-light: oklch(0.18 0 0);
-    --text: oklch(0.95 0 0);
-    --text-muted: oklch(0.6 0 0);
-    --border: oklch(0.4 0 0);
-    --border-muted: oklch(0.3 0 0);
-    --action-primary: oklch(0.7 0.2 60);
-    --action-secondary: oklch(0.7 0.15 300);
+    --bg-dark: hsl(20 12% 15%);
+    --bg: hsl(20 15% 7%);
+    --bg-light: hsl(20 15% 10%);
+    --text: hsl(30 20% 95%);
+    --text-muted: hsl(30 15% 55%);
+    --border: hsl(20 12% 18%);
+    --border-muted: hsl(20 12% 18%);
+    --action-primary: hsl(25 95% 55%);
+    --action-secondary: hsl(20 12% 15%);
   }
 }
 
 /* Dark mode via data attribute (manual toggle) */
 [data-theme="dark"] {
-  --bg-dark: oklch(0.08 0 0);
-  --bg: oklch(0.12 0 0);
-  --bg-light: oklch(0.18 0 0);
-  --text: oklch(0.95 0 0);
-  --text-muted: oklch(0.6 0 0);
-  --border: oklch(0.4 0 0);
-  --border-muted: oklch(0.3 0 0);
-  --action-primary: oklch(0.7 0.2 60);
-  --action-secondary: oklch(0.7 0.15 300);
+  --bg-dark: hsl(20 12% 15%);
+  --bg: hsl(20 15% 7%);
+  --bg-light: hsl(20 15% 10%);
+  --text: hsl(30 20% 95%);
+  --text-muted: hsl(30 15% 55%);
+  --border: hsl(20 12% 18%);
+  --border-muted: hsl(20 12% 18%);
+  --action-primary: hsl(25 95% 55%);
+  --action-secondary: hsl(20 12% 15%);
 }
 
 /* Light mode via data attribute (explicit) */
 [data-theme="light"] {
-  --bg-dark: oklch(0.15 0 0);
-  --bg: oklch(0.92 0 0);
-  --bg-light: oklch(0.96 0 0);
-  --text: oklch(0.12 0 0);
-  --text-muted: oklch(0.4 0 0);
-  --border: oklch(0.5 0.03 60);
-  --border-muted: oklch(0.75 0.02 60);
-  --action-primary: oklch(0.6 0.2 60);
-  --action-secondary: oklch(0.6 0.15 300);
+  --bg-dark: hsl(30 20% 94%);
+  --bg: hsl(30 25% 98%);
+  --bg-light: hsl(30 20% 99%);
+  --text: hsl(20 10% 10%);
+  --text-muted: hsl(20 10% 45%);
+  --border: hsl(30 15% 88%);
+  --border-muted: hsl(30 15% 92%);
+  --action-primary: hsl(25 95% 53%);
+  --action-secondary: hsl(30 20% 94%);
 }
 
 @theme {
@@ -190,8 +190,8 @@ body {
 /* Light mode code blocks - use lighter background with dark text */
 :root:not([data-theme="dark"]) .prose code,
 [data-theme="light"] .prose code {
-  background: oklch(0.88 0 0);
-  color: oklch(0.12 0 0);
+  background: hsl(30 15% 92%);
+  color: hsl(20 10% 10%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -214,8 +214,8 @@ body {
 /* Light mode pre blocks - use lighter background with dark text */
 :root:not([data-theme="dark"]) .prose pre,
 [data-theme="light"] .prose pre {
-  background: oklch(0.88 0 0);
-  color: oklch(0.12 0 0);
+  background: hsl(30 15% 92%);
+  color: hsl(20 10% 10%);
 }
 
 @media (prefers-color-scheme: dark) {
