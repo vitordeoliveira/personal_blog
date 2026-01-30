@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from "framer-motion";
-import { Bot, Building2, BookOpen, Headphones, Users, ExternalLink } from "lucide-react";
+import { Bot, Building2, BookOpen, Headphones, Users, ExternalLink, AlertCircle } from "lucide-react";
 import { Button } from "./ui/button";
 
 interface HeroProps {
@@ -124,27 +124,33 @@ export function Hero({ onOpenChat }: HeroProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
-            className="flex flex-wrap items-center gap-4 text-action-secondary"
+            className="flex flex-col gap-3"
           >
-            <Button
-              onClick={onOpenChat}
-              size="lg"
-              className="bg-gradient-primary shadow-glow hover:shadow-glow hover:shadow-2xl hover:scale-105 transition-all duration-300 gap-2"
-            >
-              <Bot className="w-5 h-5" />
-              Talk to my AI
-            </Button>
-            
-            <div className="flex flex-wrap gap-2">
-              {["Founder & Partner", "Software Engineer", "AI Enthusiast"].map((role) => (
-                <span
-                  key={role}
-                  className="px-4 py-2 rounded-full text-sm font-medium bg-action-primary/10 text-action-primary"
-                >
-                  {role}
-                </span>
-              ))}
+            <div className="flex flex-wrap items-center gap-4">
+              <Button
+                disabled
+                size="lg"
+                className="bg-gradient-primary shadow-glow opacity-60 cursor-not-allowed gap-2"
+              >
+                <Bot className="w-5 h-5" />
+                Talk to my AI
+              </Button>
+              
+              <div className="flex flex-wrap gap-2">
+                {["Founder & Partner", "Software Engineer", "AI Enthusiast"].map((role) => (
+                  <span
+                    key={role}
+                    className="px-4 py-2 rounded-full text-sm font-medium bg-action-primary/10 text-action-primary"
+                  >
+                    {role}
+                  </span>
+                ))}
+              </div>
             </div>
+            <p className="text-sm text-text-muted flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-action-primary" />
+              <span>AI chat feature is currently under maintenance. We'll be back soon!</span>
+            </p>
           </motion.div>
         </motion.div>
       </div>
