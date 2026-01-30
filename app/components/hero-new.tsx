@@ -131,7 +131,7 @@ export function Hero({ onOpenChat }: HeroProps) {
               {["Founder & Partner", "Software Engineer", "AI Enthusiast"].map((role) => (
                 <span
                   key={role}
-                  className="px-4 py-2 rounded-full text-sm font-medium bg-action-secondary text-text"
+                  className="px-4 py-2 rounded-full text-sm font-medium bg-action-primary/10 text-action-primary"
                 >
                   {role}
                 </span>
