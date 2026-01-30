@@ -16,11 +16,19 @@ export function Hero({ onOpenChat }: HeroProps) {
   ];
 
   return (
-    <section className="relative py-16 md:py-24 max-w-5xl mx-auto">
+    <section className="relative py-16 md:py-24 max-w-5xl mx-auto overflow-visible">
       {/* Glow effect */}
-      <div className="absolute inset-0 -z-10 bg-glow opacity-50" />
+      <div 
+        className="absolute inset-0 z-[1] bg-glow opacity-70 pointer-events-none w-full" 
+        style={{ 
+          backgroundImage: 'var(--gradient-glow)',
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'center',
+          backgroundSize: 'cover'
+        }} 
+      />
       
-      <div className="container">
+      <div className="container relative z-[2]">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -116,12 +124,12 @@ export function Hero({ onOpenChat }: HeroProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
-            className="flex flex-wrap items-center gap-4"
+            className="flex flex-wrap items-center gap-4 text-action-secondary"
           >
             <Button
               onClick={onOpenChat}
               size="lg"
-              className="bg-gradient-primary shadow-glow hover:shadow-2xl hover:scale-105 transition-all duration-300 gap-2"
+              className="bg-gradient-primary shadow-glow hover:shadow-glow hover:shadow-2xl hover:scale-105 transition-all duration-300 gap-2"
             >
               <Bot className="w-5 h-5" />
               Talk to my AI

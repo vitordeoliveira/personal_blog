@@ -23,6 +23,10 @@
   --alert-warning: oklch(0.75 0.15 85);
   --alert-success: oklch(0.6 0.18 145);
   --alert-info: oklch(0.6 0.15 220);
+
+  /* Glow effects (from vitor-s-bright-insights) */
+  --gradient-glow: radial-gradient(circle, hsl(25 95% 53% / 0.15), transparent 70%);
+  --shadow-glow: 0 0 40px hsl(25 95% 53% / 0.2);
 }
 
 /* Dark mode via media query (system preference) */
@@ -37,6 +41,10 @@
     --border-muted: hsl(20 12% 18%);
     --action-primary: hsl(25 95% 55%);
     --action-secondary: hsl(20 12% 15%);
+
+    /* Glow effects - dark mode */
+    --gradient-glow: radial-gradient(circle, hsl(25 95% 55% / 0.2), transparent 70%);
+    --shadow-glow: 0 0 60px hsl(25 95% 55% / 0.3);
   }
 }
 
@@ -48,9 +56,13 @@
   --text: hsl(30 20% 95%);
   --text-muted: hsl(30 15% 55%);
   --border: hsl(20 12% 18%);
-  --border-muted: hsl(20 12% 18%);
-  --action-primary: hsl(25 95% 55%);
-  --action-secondary: hsl(20 12% 15%);
+    --border-muted: hsl(20 12% 18%);
+    --action-primary: hsl(25 95% 55%);
+    --action-secondary: hsl(20 12% 15%);
+
+    /* Glow effects - dark mode */
+    --gradient-glow: radial-gradient(circle, hsl(25 95% 55% / 0.2), transparent 70%);
+    --shadow-glow: 0 0 60px hsl(25 95% 55% / 0.3);
 }
 
 /* Light mode via data attribute (explicit) */
@@ -62,8 +74,12 @@
   --text-muted: hsl(20 10% 45%);
   --border: hsl(30 15% 88%);
   --border-muted: hsl(30 15% 92%);
-  --action-primary: hsl(25 95% 53%);
-  --action-secondary: hsl(30 20% 94%);
+    --action-primary: hsl(25 95% 53%);
+    --action-secondary: hsl(30 20% 94%);
+
+    /* Glow effects - light mode */
+    --gradient-glow: radial-gradient(circle, hsl(25 95% 53% / 0.15), transparent 70%);
+    --shadow-glow: 0 0 40px hsl(25 95% 53% / 0.2);
 }
 
 @theme {
@@ -319,7 +335,7 @@ body {
 
 /* Glow background utility */
 .bg-glow {
-  background: radial-gradient(circle, hsl(25 95% 53% / 0.15), transparent 70%);
+  background-image: var(--gradient-glow);
 }
 
 /* Gradient primary background utility */
@@ -329,5 +345,5 @@ body {
 
 /* Glow shadow utility */
 .shadow-glow {
-  box-shadow: 0 0 40px hsl(25 95% 53% / 0.2);
+  box-shadow: var(--shadow-glow);
 }
