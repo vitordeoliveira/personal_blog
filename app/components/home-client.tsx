@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from "react";
-import { Hero } from "./hero-new";
+import { Hero } from "./hero";
 import BlogList from "./blog-list";
 import ChatModal from "./chat-modal";
 import type { Post } from "@/lib/posts";

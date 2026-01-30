@@ -1,38 +1,39 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import { Bot } from "lucide-react";
 import ThemeToggle from "./theme-toggle";
+import { Button } from "./ui/button";
+import ChatModal from "./chat-modal";
 
 export default function Nav() {
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-bg-light/80 backdrop-blur-sm">
-      <div className="mx-auto max-w-6xl px-6 py-5">
-        <div className="flex items-center justify-between">
-          <Link 
-            href="/" 
-            className="text-2xl font-bold text-text hover:text-action-primary transition-colors tracking-tight"
-          >
-            vitor<span className="text-action-primary">.ws</span>
+    <>
+      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-bg/80 backdrop-blur-lg">
+        <div className="mx-auto flex h-16 items-center justify-between px-6 max-w-6xl">
+          <Link href="/" className="flex items-center gap-2 font-bold text-xl">
+            <span className="text-gradient">vitor.ws</span>
           </Link>
-          <div className="flex items-center gap-8">
-            <Link
-              href="/"
-              className="text-sm font-medium text-text-muted hover:text-action-primary transition-colors relative group"
+
+          <nav className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsChatOpen(true)}
+              className="gap-2 text-text-muted hover:text-text"
             >
-              Home
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-action-primary transition-all group-hover:w-full"></span>
-            </Link>
-            <Link
-              href="/blog"
-              className="text-sm font-medium text-text-muted hover:text-action-primary transition-colors relative group"
-            >
-              Blog
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-action-primary transition-all group-hover:w-full"></span>
-            </Link>
-            <div className="h-6 w-px bg-border"></div>
+              <Bot className="h-4 w-4" />
+              <span className="hidden sm:inline">Talk to AI</span>
+            </Button>
             <ThemeToggle />
-          </div>
+          </nav>
         </div>
-      </div>
-    </nav>
+      </header>
+      <ChatModal isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+    </>
   );
 }
 
