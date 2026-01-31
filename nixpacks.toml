@@ -4,7 +4,8 @@ nixPkgs = ["python3", "gcc", "gnumake", "nodejs", "pnpm"]
 [phases.install]
 cmds = [
   "python3 --version",
-  "pnpm install"
+  "pnpm install",
+  "pnpm rebuild better-sqlite3"
 ]
 
 [phases.build]
