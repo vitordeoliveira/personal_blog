@@ -9,9 +9,10 @@ import type { Post } from "@/lib/posts";
 interface HomeClientProps {
   recentPosts: Post[];
   allPostsCount: number;
+  isMaintenanceMode: boolean;
 }
 
-export default function HomeClient({ recentPosts, allPostsCount }: HomeClientProps) {
+export default function HomeClient({ recentPosts, allPostsCount, isMaintenanceMode }: HomeClientProps) {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
@@ -29,7 +30,7 @@ export default function HomeClient({ recentPosts, allPostsCount }: HomeClientPro
         {/* Grid pattern overlay */}
         {/* <div className="bg-pattern"></div> */} 
 
-        <Hero onOpenChat={() => setIsChatOpen(true)} />
+        <Hero onOpenChat={() => setIsChatOpen(true)} isMaintenanceMode={isMaintenanceMode} />
         <div className="relative mx-auto max-w-5xl pb-12">
           <BlogList posts={recentPosts} allPostsCount={allPostsCount} />
         </div>

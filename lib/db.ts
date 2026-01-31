@@ -18,14 +18,28 @@ function getDb(): Database.Database {
     
     dbInstance = new Database(dbPath);
     
-    // Create table if it doesn't exist
+    // Create tables if they don't exist
     dbInstance.exec(`
       CREATE TABLE IF NOT EXISTS post_metadata (
         slug TEXT PRIMARY KEY,
         views INTEGER DEFAULT 0,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
+      );
+      
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
     `);
+    
+    // Initialize default settings if they don't exist
+    const settingsCheck = dbInstance.prepare("SELECT COUNT(*) as count FROM app_settings WHERE key = 'chat_maintenance'");
+    const settingsResult = settingsCheck.get() as { count: number };
+    if (settingsResult.count === 0) {
+      const initStmt = dbInstance.prepare("INSERT INTO app_settings (key, value) VALUES ('chat_maintenance', 'false')");
+      initStmt.run();
+    }
   }
   
   return dbInstance;
@@ -97,3 +111,27 @@ export function updatePostViews(slug: string, views: number): void {
   stmt.run(views, slug);
 }
 
+// App settings functions
+export function getAppSetting(key: string): string | null {
+  const db = getDb();
+  const stmt = db.prepare("SELECT value FROM app_settings WHERE key = ?");
+  const result = stmt.get(key) as { value: string } | undefined;
+  return result?.value || null;
+}
+
+export function setAppSetting(key: string, value: string): void {
+  const db = getDb();
+  const stmt = db.prepare(
+    "INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)"
+  );
+  stmt.run(key, value);
+}
+
+export function isChatMaintenanceMode(): boolean {
+  const value = getAppSetting("chat_maintenance");
+  return value === "true";
+}
+
+export function setChatMaintenanceMode(enabled: boolean): void {
+  setAppSetting("chat_maintenance", enabled ? "true" : "false");
+}

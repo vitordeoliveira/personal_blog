@@ -2,6 +2,7 @@ import { getAllPostsForAdmin } from "@/lib/posts";
 import { requireAdmin, logoutAdmin } from "@/app/actions";
 import { redirect } from "next/navigation";
 import PostsTable from "./posts-table";
+import MaintenanceToggle from "./maintenance-toggle";
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,8 @@ export default async function AdminDashboardPage() {
             </button>
           </form>
         </div>
+        
+        <MaintenanceToggle />
         
         <PostsTable posts={posts} />
       </main>

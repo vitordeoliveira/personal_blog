@@ -1,6 +1,6 @@
 "use server";
 
-import { incrementViews, getPostMetadata, updatePostViews } from "@/lib/db";
+import { incrementViews, getPostMetadata, updatePostViews, isChatMaintenanceMode, setChatMaintenanceMode } from "@/lib/db";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -166,5 +166,26 @@ export async function chatWithAgent(
   } catch (error) {
     console.error("Failed to chat with agent:", error);
     return { success: false, error: "Failed to send message" };
+  }
+}
+
+// Chat maintenance mode functions
+export async function getChatMaintenanceMode(): Promise<boolean> {
+  try {
+    return isChatMaintenanceMode();
+  } catch (error) {
+    console.error("Failed to get chat maintenance mode:", error);
+    return false;
+  }
+}
+
+export async function setChatMaintenanceModeAction(enabled: boolean) {
+  try {
+    await requireAdmin();
+    setChatMaintenanceMode(enabled);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to set chat maintenance mode:", error);
+    return { success: false, error: "Unauthorized or failed to update" };
   }
 }

@@ -6,9 +6,11 @@ import { Button } from "./ui/button";
 
 interface HeroProps {
   onOpenChat: () => void;
+  isMaintenanceMode: boolean;
 }
 
-export function Hero({ onOpenChat }: HeroProps) {
+export function Hero({ onOpenChat, isMaintenanceMode }: HeroProps) {
+
   const products = [
     { icon: Users, label: "Sales Agent Platform", description: "AI-powered sales automation" },
     { icon: BookOpen, label: "Histories Books Generator", description: "Create personalized stories" },
@@ -128,9 +130,14 @@ export function Hero({ onOpenChat }: HeroProps) {
           >
             <div className="flex flex-wrap items-center gap-4">
               <Button
-                disabled
+                onClick={onOpenChat}
+                disabled={isMaintenanceMode}
                 size="lg"
-                className="bg-gradient-primary shadow-glow opacity-60 cursor-not-allowed gap-2"
+                className={`bg-gradient-primary shadow-glow gap-2 ${
+                  isMaintenanceMode
+                    ? "opacity-60 cursor-not-allowed"
+                    : "hover:scale-105 transition-transform"
+                }`}
               >
                 <Bot className="w-5 h-5" />
                 Talk to my AI
@@ -149,7 +156,11 @@ export function Hero({ onOpenChat }: HeroProps) {
             </div>
             <p className="text-sm text-text-muted flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-action-primary" />
-              <span>AI chat feature is currently under maintenance. We'll be back soon!</span>
+              <span>
+                {isMaintenanceMode
+                  ? "AI chat feature is currently under maintenance. We'll be back soon!"
+                  : "This is a beta version of the AI chat feature. Your feedback is welcome!"}
+              </span>
             </p>
           </motion.div>
         </motion.div>
