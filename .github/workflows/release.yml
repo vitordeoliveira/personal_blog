@@ -1,0 +1,64 @@
+# Builds the Topcoat blog in `vitor_personal_blog/` for Linux when a version tag is pushed,
+# and publishes it as a release, as oxploy deploys it: vitor_personal_blog-x86_64-linux.tar.gz
+# with the binary, the assets folder it loads, and the folders it reads from its working
+# directory: `posts`, `public` and the `toasty` migrations. The Next.js app at the root is
+# not part of it.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: vitor_personal_blog
+
+jobs:
+  linux:
+    # An older Ubuntu, so the binary also runs where glibc is older than on the runner.
+    runs-on: ubuntu-22.04
+    env:
+      FILE: vitor_personal_blog-x86_64-linux.tar.gz
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+
+      - name: Check the tag against the version
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "The tag $GITHUB_REF_NAME does not match version $version in Cargo.toml" >&2
+            exit 1
+          fi
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: vitor_personal_blog
+
+      # It writes the files the binary declares with `asset!`, which it loads at runtime.
+      - name: Install the Topcoat CLI
+        run: cargo install topcoat-cli --version 0.11.0 --locked
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Bundle the assets
+        run: topcoat asset bundle --release
+
+      - name: Package
+        run: |
+          tar czf "$FILE" -C target/release vitor_personal_blog assets -C ../.. posts public toasty
+          sha256sum "$FILE" > "$FILE.sha256"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME"
+          "$FILE" "$FILE.sha256"
+          --title "vitor.ws $GITHUB_REF_NAME" --generate-notes
