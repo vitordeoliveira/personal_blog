@@ -4,3 +4,8 @@ version = 1
 id = 215352952771175861
 name = "0000_post_views.sql"
 snapshot_name = "0000_snapshot.toml"
+
+[[migrations]]
+id = 4189174224130298350
+name = "0001_create_visits_and_admin.sql"
+snapshot_name = "0001_snapshot.toml"

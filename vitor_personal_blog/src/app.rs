@@ -1,4 +1,6 @@
+mod admin;
 mod blog;
+mod privacy;
 
 use topcoat::{
     Result,
@@ -16,11 +18,13 @@ use topcoat::{
         route,
     },
     runtime::RouterBuilderRuntimeExt,
+    session::{RouterBuilderSessionExt, SessionConfig},
     tailwind,
     view::{View, attributes, class, component, error_boundary, view},
 };
 
 use crate::components::button::{ButtonSize, ButtonVariant, button_variants};
+use crate::features::analytics::{self, Analytics};
 use crate::features::post::Post;
 use crate::features::post_view::PostView;
 use crate::features::theme::{Theme, theme_script, theme_toggle};
@@ -83,8 +87,10 @@ pub fn router() -> RouterBuilder {
         .serve_dir("/blog_assets/{*file}", "./public/blog_assets")
         // Turns paths into absolute URLs for canonical links and the sitemap.
         .base_url(std::env::var("SITE_URL").unwrap_or_else(|_| SITE_URL.to_owned()))
-        // Lets the theme read and remember the visitor's color scheme.
+        // Lets the theme and the analytics read and remember the visitor's choices.
         .cookies()
+        // The admin's session, carried in a cookie.
+        .sessions(SessionConfig::default())
         // Lets the browser runtime rerun pages; register it after other layers.
         .runtime()
 }
@@ -95,7 +101,15 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
     let meta = try_request_context::<PageMeta>(cx)
         .cloned()
         .unwrap_or_default();
-    let url = base_url(cx).join(uri(cx).path());
+    let path = uri(cx).path();
+    let url = base_url(cx).join(path);
+    let admin = path == "/admin" || path.starts_with("/admin/");
+    // This layout also runs for a missing page, so only the site's pages count as visits.
+    if counts_as_visit(path).await {
+        Analytics::get(cx).record(cx);
+    }
+    // The privacy page asks the same itself, and the admin is not a visitor.
+    let ask = !admin && path != "/privacy" && analytics::choice(cx).is_none();
 
     Ok(view! {
         <!DOCTYPE html>
@@ -108,6 +122,9 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                     " | vitor.ws"
                 </title>
                 <meta name="description" content=(&meta.description)>
+                if admin {
+                    <meta name="robots" content="noindex">
+                }
                 <link rel="canonical" href=(&url)>
                 // Open Graph and Twitter tags shape the preview when a link is shared.
                 <meta property="og:site_name" content="vitor.ws">
@@ -155,9 +172,24 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                     )
                 </main>
                 site_footer()
+                if ask {
+                    privacy::cookie_banner()
+                }
             </body>
         </html>
     })
+}
+
+/// Whether `path` is one of the site's pages, which count as visits: the home page, the
+/// blog, and each published post. A new page goes here too.
+async fn counts_as_visit(path: &str) -> bool {
+    match path {
+        "/" | "/blog" => true,
+        _ => match path.strip_prefix("/blog/") {
+            Some(slug) => matches!(Post::get(slug).await, Ok(Some(_))),
+            None => false,
+        },
+    }
 }
 
 /// Tells crawlers they may index everything and where the sitemap is.
@@ -252,12 +284,20 @@ async fn site_footer() -> Result<impl View> {
                     (year)
                     " Vitor de Oliveira"
                 </p>
-                <a
-                    href="mailto:vitordeoliveira50@gmail.com"
-                    class="transition-colors hover:text-primary"
-                >
-                    "vitordeoliveira50@gmail.com"
-                </a>
+                <div class="flex items-center gap-4">
+                    <a
+                        href=(href!(privacy::page))
+                        class="transition-colors hover:text-primary"
+                    >
+                        "Privacy"
+                    </a>
+                    <a
+                        href="mailto:vitordeoliveira50@gmail.com"
+                        class="transition-colors hover:text-primary"
+                    >
+                        "vitordeoliveira50@gmail.com"
+                    </a>
+                </div>
             </div>
         </footer>
     })

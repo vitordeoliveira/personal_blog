@@ -17,5 +17,8 @@ async fn main() {
         return;
     }
 
-    topcoat::start(app::router().app_context(db).build()).await.unwrap();
+    let analytics = features::analytics::Analytics::start(db.clone()).await.unwrap();
+    topcoat::start(app::router().app_context(db).app_context(analytics).build())
+        .await
+        .unwrap();
 }
