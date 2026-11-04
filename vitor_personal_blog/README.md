@@ -1,0 +1,61 @@
+# vitor_personal_blog
+
+A [Topcoat](https://github.com/tokio-rs/topcoat) application.
+
+## Development
+
+Install the Topcoat CLI:
+
+```sh
+cargo install topcoat-cli
+```
+
+Create the database tables by generating a migration from the models and applying it:
+
+```sh
+cargo run -- toasty migration generate
+cargo run -- toasty migration apply
+```
+
+Run both commands again after changing a model. The database is stored in `data.db`.
+
+Start the development server, which rebuilds the application when you edit its source:
+
+```sh
+topcoat dev
+```
+
+Then open <http://127.0.0.1:3000>.
+
+## Releasing
+
+Pushing a tag such as `v0.1.0` that matches the version in `Cargo.toml` builds the blog on
+Ubuntu 22.04 and publishes a release with `vitor_personal_blog-x86_64-linux.tar.gz` and its
+`.sha256`. The archive has the binary, the `assets` folder it loads, and the `posts`,
+`public` and `toasty` folders it reads from its working directory, so run it from the
+folder it was extracted to:
+
+```sh
+./vitor_personal_blog toasty migration apply
+PORT=3000 ./vitor_personal_blog
+```
+
+The database is `data.db` in the same folder. Set `HOST` to listen on another address than
+`127.0.0.1`, and `SITE_URL` to publish somewhere other than `https://vitor.ws`.
+
+## Project structure
+
+| Path | Contents |
+| --- | --- |
+| `src/app.rs`, `src/app/` | The route tree: the router, layouts, pages, and routes. |
+| `src/features.rs`, `src/features/` | Everything one feature owns, such as its data and business rules. |
+| `src/components.rs`, `src/components/` | Shared UI components that belong to no single feature. |
+| `src/db.rs` | The database connection. |
+| `toasty/` | The database migrations. Commit them with your code. |
+
+Pages in `app` use features and components. A feature can use shared components but never imports from `app`, and shared components never import from a feature.
+
+## Learn more
+
+- [Getting started](https://github.com/tokio-rs/topcoat/blob/main/docs/getting_started.md)
+- [Guides](https://github.com/tokio-rs/topcoat/tree/main#learn-topcoat)

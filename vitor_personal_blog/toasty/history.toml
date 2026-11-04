@@ -1,0 +1,6 @@
+version = 1
+
+[[migrations]]
+id = 215352952771175861
+name = "0000_post_views.sql"
+snapshot_name = "0000_snapshot.toml"
