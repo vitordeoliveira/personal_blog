@@ -8,7 +8,7 @@ use topcoat::{
     context::{Cx, base_url, try_request_context},
     cookie::RouterBuilderCookieExt,
     font::{Font, fontsource::fontsource_font},
-    icon::{icon, iconify::iconify_icon},
+    icon::{IconData, icon, iconify::iconify_icon},
     router::{
         RouterBuilder, RouterBuilderDirectoryExt, RouterBuilderDiscoverExt, Slot, StatusCode,
         content::sitemap::{ChangeFrequency, Sitemap, SitemapUrl},
@@ -24,6 +24,10 @@ use topcoat::{
 };
 
 use crate::components::button::{ButtonSize, ButtonVariant, button_variants};
+use crate::components::navigation_menu::{
+    NavigationMenuLinkVariant, navigation_menu, navigation_menu_content, navigation_menu_item,
+    navigation_menu_link, navigation_menu_list, navigation_menu_trigger,
+};
 use crate::features::analytics::{self, Analytics};
 use crate::features::post::Post;
 use crate::features::post_view::PostView;
@@ -48,6 +52,31 @@ const SITE_URL: &str = "https://vitor.ws";
 /// The description of pages that do not have their own.
 const DESCRIPTION: &str =
     "Blog by Vitor de Oliveira, a software engineer at RockawayX focused on Rust, crypto and AI";
+
+/// One of my projects, linked from the header and the home page.
+struct Project {
+    name: &'static str,
+    /// What it is, in a few words.
+    description: &'static str,
+    /// Its site, with `utm_source` telling it the visit came from here.
+    url: &'static str,
+    icon: IconData,
+}
+
+const PROJECTS: [Project; 2] = [
+    Project {
+        name: "Oxploy",
+        description: "Deploy Rust apps on your own server",
+        url: "https://oxploy.com/?utm_source=vitorws",
+        icon: iconify_icon!("lucide:rocket"),
+    },
+    Project {
+        name: "Porta Global",
+        description: "Mercosur residency in Chile and Paraguay",
+        url: "https://portaglobal.com.br/?utm_source=vitorws",
+        icon: iconify_icon!("lucide:globe"),
+    },
+];
 
 /// What `<head>` says about the current page.
 ///
@@ -252,19 +281,52 @@ async fn site_header(cx: &Cx) -> Result<impl View> {
                 >
                     "vitor.ws"
                 </a>
-                <nav class="flex items-center gap-2">
-                    <a
-                        href=(blog_link)
-                        aria-current=(on_blog.then_some("page"))
-                        class=(class!(
-                            button_variants(ButtonVariant::Ghost, ButtonSize::Sm),
-                            "aria-[current=page]:text-primary",
-                        ))
-                    >
-                        "Blog"
-                    </a>
+                navigation_menu(
+                    attrs: attributes! { class="gap-1" },
+                    navigation_menu_list(
+                        navigation_menu_item(
+                            navigation_menu_link(
+                                variant: NavigationMenuLinkVariant::Trigger,
+                                active: on_blog,
+                                attrs: attributes! {
+                                    href=(blog_link)
+                                    class="aria-[current=page]:text-primary"
+                                },
+                                "Blog"
+                            )
+                        )
+                        navigation_menu_item(
+                            // The panel opens from the item's right edge, since the item sits
+                            // at the right of the header and a panel opening from its left
+                            // edge would run off a phone's screen.
+                            attrs: attributes! { class="[&>div]:right-0 [&>div]:left-auto" },
+                            navigation_menu_trigger("Projects")
+                            navigation_menu_content(
+                                attrs: attributes! { class="w-72" },
+                                for project in PROJECTS {
+                                    navigation_menu_link(
+                                        attrs: attributes! { href=(project.url) target="_blank" rel="noopener" },
+                                        <span class="flex items-center gap-2 font-medium">
+                                            icon(
+                                                data: project.icon,
+                                                attrs: attributes! { class="size-4 text-primary" }
+                                            )
+                                            (project.name)
+                                            icon(
+                                                data: iconify_icon!("lucide:external-link"),
+                                                attrs: attributes! { class="size-3 text-muted-foreground" }
+                                            )
+                                        </span>
+                                        <span class="pl-6 text-muted-foreground">
+                                            (project.description)
+                                        </span>
+                                    )
+                                }
+                            )
+                        )
+                    )
                     theme_toggle()
-                </nav>
+                )
             </div>
         </header>
     })
@@ -392,6 +454,43 @@ async fn home(cx: &Cx) -> Result<impl View> {
                         class="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
                     >
                         (role)
+                    </li>
+                }
+            </ul>
+        </section>
+
+        <section class="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+            <h2 class="text-2xl font-semibold tracking-tight">"Projects"</h2>
+            <ul class="mt-6 grid gap-3 sm:grid-cols-2">
+                for project in PROJECTS {
+                    <li>
+                        <a
+                            href=(project.url)
+                            target="_blank"
+                            rel="noopener"
+                            class="flex h-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm transition-colors outline-none hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <span
+                                class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+                            >
+                                icon(
+                                    data: project.icon,
+                                    attrs: attributes! { class="size-5" }
+                                )
+                            </span>
+                            <div>
+                                <p class="flex items-center gap-1 text-sm font-semibold">
+                                    (project.name)
+                                    icon(
+                                        data: iconify_icon!("lucide:external-link"),
+                                        attrs: attributes! { class="size-3 text-muted-foreground" }
+                                    )
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    (project.description)
+                                </p>
+                            </div>
+                        </a>
                     </li>
                 }
             </ul>

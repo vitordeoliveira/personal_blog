@@ -19,3 +19,7 @@ file = "src/components/button.rs"
 [registries.topcoat.components.input]
 hash = "sha256:c96f34a75f49d24388eb854b864033954060896ae008e76a229ab306299185fd"
 file = "src/components/input.rs"
+
+[registries.topcoat.components.navigation_menu]
+hash = "sha256:4c9588bc122afb16de5d31674cd3d1b7fb07772759ff847d708139fcf58d0972"
+file = "src/components/navigation_menu.rs"
