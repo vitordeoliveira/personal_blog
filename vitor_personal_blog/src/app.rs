@@ -47,7 +47,7 @@ const SITE_URL: &str = "https://vitor.ws";
 
 /// The description of pages that do not have their own.
 const DESCRIPTION: &str =
-    "Blog by Vitor de Oliveira - JavaScript, Rust & AI specialist with 10+ years of experience";
+    "Blog by Vitor de Oliveira, a software engineer at RockawayX focused on Rust, crypto and AI";
 
 /// What `<head>` says about the current page.
 ///
@@ -337,91 +337,56 @@ async fn home(cx: &Cx) -> Result<impl View> {
     posts.truncate(RECENT_POSTS);
     let views = PostView::by_slug(cx).await?;
 
-    let products = [
-        (
-            iconify_icon!("lucide:users"),
-            "Sales Agent Platform",
-            "AI-powered sales automation",
-        ),
-        (
-            iconify_icon!("lucide:book-open"),
-            "Histories Books Generator",
-            "Create personalized stories",
-        ),
-        (
-            iconify_icon!("lucide:headphones"),
-            "Support Agents",
-            "Intelligent customer support",
-        ),
-    ];
-    let roles = ["Founder & Partner", "Software Engineer", "AI Enthusiast"];
+    let roles = ["Software Engineer", "Founder & Partner", "AI Enthusiast"];
 
     Ok(view! {
         <section class="mx-auto max-w-3xl px-4 pt-16 pb-12 sm:px-6 md:pt-24">
             <p class="text-sm font-medium text-primary">
-                "10+ Years Experience • JavaScript • Rust • AI"
+                "10+ Years Experience • Rust • Crypto • AI"
             </p>
             <h1 class="mt-4 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
                 "Hi, I'm "
                 <span class="text-primary">"Vitor de Oliveira"</span>
             </h1>
             <p class="mt-6 text-lg leading-relaxed text-muted-foreground md:text-xl">
-                "With over 10+ years of experience in the tech industry, I've had the privilege of "
-                "working with leading companies like "
-                <span class="font-medium text-foreground">"Volkswagen"</span>
-                ", where I've contributed to innovative projects and cutting-edge solutions."
+                "I'm a software engineer, and today my focus is "
+                <span class="font-medium text-foreground">"Rust"</span>
+                ", "
+                <span class="font-medium text-foreground">"crypto"</span>
+                " and "
+                <span class="font-medium text-foreground">"AI"</span>
+                "."
             </p>
             <p class="mt-4 leading-relaxed text-muted-foreground">
-                "I specialize in JavaScript, Rust, and AI, combining these technologies to build "
-                "robust, performant, and intelligent applications. Beyond my technical expertise, "
-                "I'm also an entrepreneur—founder of "
+                "In over 10 years in tech, I've worked with companies like "
+                <span class="font-medium text-foreground">"Volkswagen"</span>
+                ", founded "
                 <span class="font-medium text-foreground">"3 companies"</span>
-                " and partner in another."
+                " and partnered in another. Here I write about the projects I'm building, and "
+                "why I choose the technologies behind them."
             </p>
 
-            <div class="mt-10">
-                <p class="flex items-center gap-2 text-sm text-muted-foreground">
+            <p class="mt-10 flex items-center gap-2 text-sm text-muted-foreground">
+                icon(
+                    data: iconify_icon!("lucide:building-2"),
+                    attrs: attributes! { class="size-4 text-primary" }
+                )
+                "Software Engineer at"
+                <a
+                    href="https://www.rockawayx.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                >
+                    "RockawayX"
                     icon(
-                        data: iconify_icon!("lucide:building-2"),
-                        attrs: attributes! { class="size-4 text-primary" }
+                        data: iconify_icon!("lucide:external-link"),
+                        attrs: attributes! { class="size-3" }
                     )
-                    "Founder of"
-                    <a
-                        href="https://invisible-matrix.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
-                    >
-                        "Invisible Matrix"
-                        icon(
-                            data: iconify_icon!("lucide:external-link"),
-                            attrs: attributes! { class="size-3" }
-                        )
-                    </a>
-                </p>
-                <ul class="mt-4 grid gap-3 sm:grid-cols-3">
-                    for (product_icon, name, description) in products {
-                        <li
-                            class="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm"
-                        >
-                            <span
-                                class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
-                            >
-                                icon(
-                                    data: product_icon,
-                                    attrs: attributes! { class="size-5" }
-                                )
-                            </span>
-                            <div>
-                                <p class="text-sm font-semibold">(name)</p>
-                                <p class="text-xs text-muted-foreground">(description)</p>
-                            </div>
-                        </li>
-                    }
-                </ul>
-            </div>
+                </a>
+            </p>
 
-            <ul class="mt-8 flex flex-wrap gap-2">
+            <ul class="mt-6 flex flex-wrap gap-2">
                 for role in roles {
                     <li
                         class="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
