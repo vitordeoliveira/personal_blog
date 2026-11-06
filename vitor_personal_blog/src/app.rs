@@ -337,6 +337,13 @@ async fn feed(cx: &Cx) -> Result<([(HeaderName, HeaderValue); 1], String)> {
 async fn site_header(cx: &Cx) -> Result<impl View> {
     let blog_link = href!(blog::page);
     let on_blog = blog_link.is_current(cx);
+    let admin_link = href!(admin::page);
+    let on_admin = admin_link.is_current(cx);
+    // Only a browser with a session cookie reaches the database. A failed check hides
+    // the link instead of failing the page.
+    let signed_in = crate::features::admin::signed_in(cx)
+        .await
+        .unwrap_or(false);
 
     Ok(view! {
         <header
@@ -367,7 +374,7 @@ async fn site_header(cx: &Cx) -> Result<impl View> {
                         )
                         navigation_menu_item(
                             // The panel opens from the item's right edge, since the item sits
-                            // at the right of the header and a panel opening from its left
+                            // near the right of the header and a panel opening from its left
                             // edge would run off a phone's screen.
                             attrs: attributes! { class="[&>div]:right-0 [&>div]:left-auto" },
                             navigation_menu_trigger("Projects")
@@ -394,6 +401,26 @@ async fn site_header(cx: &Cx) -> Result<impl View> {
                                 }
                             )
                         )
+                        if signed_in {
+                            navigation_menu_item(
+                                navigation_menu_link(
+                                    variant: NavigationMenuLinkVariant::Trigger,
+                                    active: on_admin,
+                                    // An icon alone on phones, where the word would push the
+                                    // theme toggle off a 320px screen.
+                                    attrs: attributes! {
+                                        href=(admin_link)
+                                        aria-label="Admin"
+                                        class="aria-[current=page]:text-primary max-sm:px-2"
+                                    },
+                                    icon(
+                                        data: iconify_icon!("lucide:chart-column"),
+                                        attrs: attributes! { class="size-4 sm:hidden" }
+                                    )
+                                    <span class="hidden sm:inline">"Admin"</span>
+                                )
+                            )
+                        }
                     )
                     theme_toggle()
                 )

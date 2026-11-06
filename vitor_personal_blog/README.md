@@ -111,8 +111,9 @@ cookie too, and lets visitors change their answer.
 `/admin` shows the visits of the last 7, 30 or 90 days: visitors, page views, each day's, the
 pages most opened, where visitors came from, their devices, browsers and campaigns, and,
 among those who accepted the cookie, how many came back. Its name and password are
-`ADMIN_USERNAME` and `ADMIN_PASSWORD`; without both, nobody can sign in. Days are in the
-server's time zone, which `TZ` changes, such as `TZ=America/Sao_Paulo`.
+`ADMIN_USERNAME` and `ADMIN_PASSWORD`; without both, nobody can sign in. Once signed in, the
+header links to it on every page. Days are in the server's time zone, which `TZ` changes,
+such as `TZ=America/Sao_Paulo`.
 
 The visits are in the `page_views` table of the site's database, next to the posts' view
 counts, and are deleted after 400 days, when the site starts.
