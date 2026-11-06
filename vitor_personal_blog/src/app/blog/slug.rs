@@ -9,16 +9,20 @@ use topcoat::{
     view::{Unescaped, View, attributes, class, view},
 };
 
-use super::super::PageMeta;
+use super::super::{Article, PageMeta, seo};
+use super::post_list;
 
 use crate::components::badge::{BadgeVariant, badge};
 use crate::components::button::{ButtonSize, ButtonVariant, button_variants};
-use crate::features::post::Post;
-use crate::features::post_view::view_count;
+use crate::features::post::{Post, long_date};
+use crate::features::post_view::{PostView, view_count};
 
 module_param!(pub slug);
 
-/// Gives the post page the post's title and description in `<head>`.
+/// How many other posts the end of a post suggests.
+const MORE_POSTS: usize = 3;
+
+/// Gives the post page the post's title, description and dates in `<head>`.
 #[layer]
 async fn post_meta(cx: &Cx, body: Body, next: Next<'_>) -> Result<Response> {
     let Some(post) = Post::get(path_param::<Slug>(cx)).await? else {
@@ -29,7 +33,11 @@ async fn post_meta(cx: &Cx, body: Body, next: Next<'_>) -> Result<Response> {
     let description = post.description.clone().or_else(|| post.subtitle.clone());
     let cx = cx.with(PageMeta {
         description: description.unwrap_or_else(|| PageMeta::default().description),
-        published: Some(post.date_iso().to_owned()),
+        article: Some(Article {
+            published: post.published_at(),
+            modified: post.modified_at(),
+            tags: post.tags,
+        }),
         title: post.title,
     });
     next.run(&cx, body).await
@@ -40,8 +48,17 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
     let post = Post::get(path_param::<Slug>(cx)).await?.ok_or_not_found()?;
     // Posts are markdown files from this repository, so their HTML is trusted.
     let body = Unescaped::new_unchecked(post.html());
+    // The newest other posts, so readers and crawlers find more than this one.
+    let more: Vec<Post> = Post::list()
+        .await?
+        .into_iter()
+        .filter(|other| other.slug != post.slug)
+        .take(MORE_POSTS)
+        .collect();
+    let views = PostView::by_slug(cx).await?;
 
     Ok(view! {
+        seo::structured_data(data: seo::post(cx, &post))
         <article class="mx-auto max-w-3xl px-4 py-12 sm:px-6 md:py-16">
             <a
                 href=(href!(super::page))
@@ -57,8 +74,17 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                 "All posts"
             </a>
             <header class="mt-8">
-                <p class="flex items-center gap-2 text-sm text-muted-foreground">
+                <p
+                    class="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground"
+                >
                     <time datetime=(post.date_iso())>(post.date_long())</time>
+                    if let Some(updated) = post.updated_iso() {
+                        <span aria-hidden="true">"•"</span>
+                        <span>
+                            "Updated "
+                            <time datetime=(updated)>(long_date(updated))</time>
+                        </span>
+                    }
                     <span aria-hidden="true">"•"</span>
                     view_count(slug: post.slug.clone())
                 </p>
@@ -81,5 +107,15 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
             <hr class="my-10 border-border">
             <div class="prose prose-theme max-w-none">(body)</div>
         </article>
+        if !more.is_empty() {
+            <section class="mx-auto max-w-3xl px-4 pb-16 sm:px-6">
+                <h2
+                    class="border-t border-border pt-10 text-2xl font-semibold tracking-tight"
+                >
+                    "Keep reading"
+                </h2>
+                post_list(posts: more, views: views, heading: "h3")
+            </section>
+        }
     })
 }

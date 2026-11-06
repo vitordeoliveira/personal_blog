@@ -1,7 +1,9 @@
 mod admin;
 mod blog;
 mod privacy;
+mod seo;
 
+use jiff::Timestamp;
 use topcoat::{
     Result,
     asset::{Asset, AssetBundle, RouterBuilderAssetExt, asset},
@@ -10,9 +12,11 @@ use topcoat::{
     font::{Font, fontsource::fontsource_font},
     icon::{IconData, icon, iconify::iconify_icon},
     router::{
-        RouterBuilder, RouterBuilderDirectoryExt, RouterBuilderDiscoverExt, Slot, StatusCode,
+        HeaderValue, RouterBuilder, RouterBuilderDirectoryExt, RouterBuilderDiscoverExt, Slot,
+        StatusCode,
         content::sitemap::{ChangeFrequency, Sitemap, SitemapUrl},
         error::NotFoundError,
+        header::{CONTENT_TYPE, HeaderName},
         href, layout, module_router, not_found, page,
         request::uri,
         route,
@@ -42,12 +46,30 @@ const FAVICON: Asset = asset!("assets/icon.svg");
 /// full-bleed 180px square, since iOS rounds the corners itself.
 const APPLE_TOUCH_ICON: Asset = asset!("assets/apple-touch-icon.png");
 
+/// The picture a link to any page shows when it is shared, 1200x630 as Open Graph
+/// and X expect. `scripts/social_image.swift` draws it.
+const SOCIAL_IMAGE: Asset = asset!("assets/og.jpg");
+
+/// What [`SOCIAL_IMAGE`] shows, for screen readers in link previews.
+const SOCIAL_IMAGE_ALT: &str =
+    "vitor.ws: Vitor de Oliveira, software engineer writing about Rust, crypto and AI";
+
 /// How many posts the home page lists.
 const RECENT_POSTS: usize = 5;
 
 /// Where the site is published, for canonical links and the sitemap. `SITE_URL`
 /// overrides it.
 const SITE_URL: &str = "https://vitor.ws";
+
+/// The site's name, in titles, link previews and the feed.
+const SITE_NAME: &str = "vitor.ws";
+
+/// Who writes the site.
+const AUTHOR: &str = "Vitor de Oliveira";
+
+/// My GitHub profile, which tells search engines the site and the profile are the
+/// same person.
+const GITHUB: &str = "https://github.com/vitordeoliveira";
 
 /// The description of pages that do not have their own.
 const DESCRIPTION: &str =
@@ -87,16 +109,24 @@ pub struct PageMeta {
     /// The page's name, which `<title>` follows with ` | vitor.ws`.
     pub title: String,
     pub description: String,
-    /// For a post, its publication date, which marks the page as an article.
-    pub published: Option<String>,
+    /// For a post, what link previews and search engines read about it as an article.
+    pub article: Option<Article>,
+}
+
+/// What `<head>` says about a post.
+#[derive(Clone, Debug)]
+pub struct Article {
+    pub published: Option<Timestamp>,
+    pub modified: Option<Timestamp>,
+    pub tags: Vec<String>,
 }
 
 impl Default for PageMeta {
     fn default() -> Self {
         Self {
-            title: "Vitor de Oliveira".to_owned(),
+            title: "Vitor de Oliveira, software engineer".to_owned(),
             description: DESCRIPTION.to_owned(),
-            published: None,
+            article: None,
         }
     }
 }
@@ -132,6 +162,8 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
         .unwrap_or_default();
     let path = uri(cx).path();
     let url = base_url(cx).join(path);
+    let home_url = href!(home).absolute().resolve(cx);
+    let image_url = seo::image_url(cx);
     let admin = path == "/admin" || path.starts_with("/admin/");
     // This layout also runs for a missing page, so only the site's pages count as visits.
     if counts_as_visit(path).await {
@@ -148,30 +180,55 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>
                     (&meta.title)
-                    " | vitor.ws"
+                    " | "
+                    (SITE_NAME)
                 </title>
                 <meta name="description" content=(&meta.description)>
+                <meta name="author" content=(AUTHOR)>
                 if admin {
                     <meta name="robots" content="noindex">
                 }
                 <link rel="canonical" href=(&url)>
+                <link
+                    rel="alternate"
+                    type="application/rss+xml"
+                    title=(SITE_NAME)
+                    href=(href!(feed))
+                >
                 // Open Graph and Twitter tags shape the preview when a link is shared.
-                <meta property="og:site_name" content="vitor.ws">
+                <meta property="og:site_name" content=(SITE_NAME)>
+                <meta property="og:locale" content="en_US">
                 <meta
                     property="og:type"
-                    content=(if meta.published.is_some() {
-                        "article"
-                    } else {
-                        "website"
-                    })
+                    content=(if meta.article.is_some() { "article" } else { "website" })
                 >
                 <meta property="og:title" content=(&meta.title)>
                 <meta property="og:description" content=(&meta.description)>
                 <meta property="og:url" content=(&url)>
-                if let Some(published) = &meta.published {
-                    <meta property="article:published_time" content=(published)>
+                <meta property="og:image" content=(&image_url)>
+                <meta property="og:image:type" content="image/jpeg">
+                <meta property="og:image:width" content="1200">
+                <meta property="og:image:height" content="630">
+                <meta property="og:image:alt" content=(SOCIAL_IMAGE_ALT)>
+                if let Some(article) = &meta.article {
+                    if let Some(published) = article.published {
+                        <meta
+                            property="article:published_time"
+                            content=(published.to_string())
+                        >
+                    }
+                    if let Some(modified) = article.modified {
+                        <meta
+                            property="article:modified_time"
+                            content=(modified.to_string())
+                        >
+                    }
+                    <meta property="article:author" content=(&home_url)>
+                    for tag in &article.tags {
+                        <meta property="article:tag" content=(tag)>
+                    }
                 }
-                <meta name="twitter:card" content="summary">
+                <meta name="twitter:card" content="summary_large_image">
                 <link rel="icon" type="image/svg+xml" href=(FAVICON)>
                 <link rel="apple-touch-icon" href=(APPLE_TOUCH_ICON)>
                 // Before the stylesheet, so the first paint already has the right scheme.
@@ -234,8 +291,8 @@ async fn robots(cx: &Cx) -> Result<String> {
 #[route(GET "./sitemap.xml")]
 async fn sitemap(cx: &Cx) -> Result<Sitemap> {
     let posts = Post::list().await?;
-    // The site changes when a post is published.
-    let latest = posts.first().and_then(Post::published_at);
+    // The site changes when a post is published or updated.
+    let latest = posts.iter().filter_map(Post::modified_at).max();
 
     let mut home_url = SitemapUrl::new(href!(home).resolve(cx))
         .change_frequency(ChangeFrequency::Weekly)
@@ -256,11 +313,24 @@ async fn sitemap(cx: &Cx) -> Result<Sitemap> {
                 SitemapUrl::new(href!(blog::slug::page, blog::slug::Slug(&post.slug)).resolve(cx))
                     .change_frequency(ChangeFrequency::Monthly)
                     .priority(0.6);
-            match post.published_at() {
-                Some(published) => url.last_modified(published),
+            match post.modified_at() {
+                Some(modified) => url.last_modified(modified),
                 None => url,
             }
         })))
+}
+
+/// The published posts as an RSS feed, for feed readers.
+#[route(GET "./feed.xml")]
+async fn feed(cx: &Cx) -> Result<([(HeaderName, HeaderValue); 1], String)> {
+    let posts = Post::list().await?;
+    Ok((
+        [(
+            CONTENT_TYPE,
+            HeaderValue::from_static("application/rss+xml; charset=utf-8"),
+        )],
+        seo::rss(cx, &posts),
+    ))
 }
 
 #[component]
@@ -346,12 +416,24 @@ async fn site_footer() -> Result<impl View> {
                     (year)
                     " Vitor de Oliveira"
                 </p>
-                <div class="flex items-center gap-4">
+                <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
                     <a
                         href=(href!(privacy::page))
                         class="transition-colors hover:text-primary"
                     >
                         "Privacy"
+                    </a>
+                    <a href=(href!(feed)) class="transition-colors hover:text-primary">
+                        "RSS"
+                    </a>
+                    // `rel="me"` tells search engines the profile is mine.
+                    <a
+                        href=(GITHUB)
+                        rel="me noopener"
+                        target="_blank"
+                        class="transition-colors hover:text-primary"
+                    >
+                        "GitHub"
                     </a>
                     <a
                         href="mailto:vitordeoliveira50@gmail.com"
@@ -402,6 +484,7 @@ async fn home(cx: &Cx) -> Result<impl View> {
     let roles = ["Software Engineer", "Founder & Partner", "AI Enthusiast"];
 
     Ok(view! {
+        seo::structured_data(data: seo::home(cx))
         <section class="mx-auto max-w-3xl px-4 pt-16 pb-12 sm:px-6 md:pt-24">
             <p class="text-sm font-medium text-primary">
                 "10+ Years Experience • Rust • Crypto • AI"

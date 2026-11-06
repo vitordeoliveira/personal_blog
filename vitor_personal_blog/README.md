@@ -51,6 +51,44 @@ Without `DATABASE_URL` or `OXPLOY_STORAGE_DIR`, the database is `data.db` in the
 Set `HOST` to listen on another address than `127.0.0.1`, and `SITE_URL` to publish somewhere
 other than `https://vitor.ws`.
 
+## Posts
+
+Each post is a markdown file in `posts/`, and its file name is its URL: `posts/my_post.md` is
+`/blog/my_post`. The YAML at the top describes it:
+
+```yaml
+---
+title: "My post"
+subtitle: "Shown under the title"
+description: "One or two sentences for search results and link previews"
+tags: ["rust", "topcoat"]
+date: "2026-11-02t21:00:00"
+updated: "2026-11-04t20:50:00"
+ready: true
+---
+```
+
+A post shows only once `ready: true`. Dates are UTC, with or without the time. Set `updated`
+when a post changes in a way worth telling readers: the post then shows the date, and search
+engines and the sitemap get it. Keep `description` under about 160 characters, since search
+results cut longer ones; without it, the subtitle stands in.
+
+## Search engines and sharing
+
+Every page has its canonical URL, a description, and the Open Graph and X tags that shape a
+shared link's preview, with `assets/og.jpg` as the picture. To change the picture, edit
+`scripts/social_image.swift` and run it on macOS:
+
+```sh
+swift scripts/social_image.swift assets/og.jpg
+```
+
+The pages also describe themselves to search engines as JSON-LD (`src/app/seo.rs`): the home
+page as the site and its author, `/blog` as the blog, and each post as an article, with its
+dates, tags and breadcrumbs. `/sitemap.xml` lists the pages with the date each last changed,
+`/robots.txt` points to it, and `/feed.xml` is an RSS feed of the posts. Each post's headings
+get an `id` from their text, so links can point at a section.
+
 ## Visits and the admin
 
 The site counts the visits to its pages on its own server, with no analytics service, and
@@ -89,6 +127,8 @@ counts, and are deleted after 400 days, when the site starts.
 | `src/app/privacy.rs` | The privacy page, and the cookie banner. |
 | `src/app/admin.rs` | The admin's page: signing in, and the visits. |
 | `src/features/analytics.rs`, `src/features/admin.rs` | The visits, and the admin's sign-in. |
+| `src/app/seo.rs` | The structured data for search engines, and the RSS feed. |
+| `scripts/social_image.swift` | Draws `assets/og.jpg`, the picture of shared links. |
 | `src/db.rs` | The database connection. |
 | `toasty/` | The database migrations. Commit them with your code. |
 

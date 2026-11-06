@@ -9,7 +9,7 @@ use topcoat::{
     view::{View, component, view},
 };
 
-use super::PageMeta;
+use super::{PageMeta, seo};
 
 use crate::components::badge::{BadgeVariant, badge};
 use crate::features::post::Post;
@@ -19,7 +19,10 @@ use crate::features::post_view::{PostView, views_label};
 #[layer]
 async fn blog_meta(cx: &Cx, body: Body, next: Next<'_>) -> Result<Response> {
     let cx = cx.with(PageMeta {
-        title: "Blog".to_owned(),
+        title: "Blog: Rust, Topcoat and AI".to_owned(),
+        description: "Posts by Vitor de Oliveira on Rust, Topcoat, self-hosting and AI: the \
+                      projects I build, and why I pick the technologies behind them"
+            .to_owned(),
         ..PageMeta::default()
     });
     next.run(&cx, body).await
@@ -31,6 +34,7 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
     let views = PostView::by_slug(cx).await?;
 
     Ok(view! {
+        seo::structured_data(data: seo::blog(cx, &posts))
         <section class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
             <h1 class="text-3xl font-bold tracking-tight md:text-4xl">"Blog"</h1>
             if posts.is_empty() {
