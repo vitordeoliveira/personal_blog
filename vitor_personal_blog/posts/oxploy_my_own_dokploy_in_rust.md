@@ -6,6 +6,7 @@ give a deploy panel. So I'm building Oxploy: an experimental, open source
 version in Rust, made with Topcoat and Caddy, focused on deploying Rust apps."
 tags: ["oxploy", "rust", "topcoat", "self-hosting"]
 date: "2026-11-02t21:00:00"
+updated: "2026-11-04t20:50:00"
 ready: true
 ---
 
