@@ -141,7 +141,7 @@ fn initialize(params: &Value) -> Value {
         "serverInfo": {
             "name": "vitor-ws",
             "title": "vitor.ws",
-            "version": env!("CARGO_PKG_VERSION"),
+            "version": super::super::VERSION,
             "websiteUrl": "https://vitor.ws",
         },
         "instructions": INSTRUCTIONS,

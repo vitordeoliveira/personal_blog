@@ -67,6 +67,10 @@ const SITE_NAME: &str = "vitor.ws";
 /// Who writes the site.
 const AUTHOR: &str = "Vitor de Oliveira";
 
+/// The site's version, from `Cargo.toml`, shown small in the footer so I can tell which
+/// release is live.
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// My GitHub profile, which tells search engines the site and the profile are the
 /// same person.
 const GITHUB: &str = "https://github.com/vitordeoliveira";
@@ -438,10 +442,16 @@ async fn site_footer() -> Result<impl View> {
             <div
                 class="mx-auto flex max-w-3xl flex-col items-center gap-2 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:justify-between sm:px-6"
             >
-                <p>
-                    "© "
-                    (year)
-                    " Vitor de Oliveira"
+                <p class="flex items-baseline gap-3">
+                    <span>
+                        "© "
+                        (year)
+                        " Vitor de Oliveira"
+                    </span>
+                    <span class="text-xs text-muted-foreground/60">
+                        "v"
+                        (VERSION)
+                    </span>
                 </p>
                 <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
                     <a
