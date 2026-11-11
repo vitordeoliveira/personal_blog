@@ -3,6 +3,7 @@
 
 pub mod admin;
 pub mod analytics;
+pub mod mcp;
 pub mod post;
 pub mod post_view;
 pub mod theme;

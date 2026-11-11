@@ -1,5 +1,7 @@
 //! The admin's page, at `/admin`: a form to sign in, and once signed in, the site's
-//! visits of the last days.
+//! visits of the last days. `/admin/mcp` gives the visits to AI agents.
+
+pub mod mcp;
 
 use jiff::civil::Date;
 use serde::Deserialize;

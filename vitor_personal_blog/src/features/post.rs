@@ -116,6 +116,11 @@ impl Post {
             .or_else(|| self.published_at())
     }
 
+    /// The body, in markdown, without the front matter.
+    pub fn markdown(&self) -> &str {
+        &self.markdown
+    }
+
     /// The body rendered to HTML.
     ///
     /// Each heading gets an `id` from its text, so a link can point at a section and

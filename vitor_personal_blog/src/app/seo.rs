@@ -196,7 +196,8 @@ fn blog_url(cx: &Cx) -> String {
     href!(blog::page).absolute().resolve(cx)
 }
 
-fn post_url(cx: &Cx, post: &Post) -> String {
+/// The post's absolute URL, such as `https://vitor.ws/blog/my_post`.
+pub fn post_url(cx: &Cx, post: &Post) -> String {
     href!(blog::slug::page, blog::slug::Slug(&post.slug))
         .absolute()
         .resolve(cx)

@@ -65,7 +65,7 @@ pub struct AnalyticsKey {
 }
 
 /// How long visits are kept.
-const KEPT_DAYS: i64 = 400;
+pub const KEPT_DAYS: i64 = 400;
 
 /// The cookie with the visitor's choice: `yes` or `no`. It only remembers the choice, so
 /// it needs no consent of its own.
@@ -306,8 +306,60 @@ fn keyed_hash(key: &[u8], parts: &[&str]) -> String {
         .collect()
 }
 
-/// The visits of the last days.
+/// Today, in the server's time zone.
+pub fn today() -> Date {
+    Zoned::now().date()
+}
+
+/// The oldest day whose visits are still kept, [`KEPT_DAYS`] back from today included.
+pub fn earliest_day() -> Date {
+    let today = today();
+    today.checked_sub((KEPT_DAYS - 1).days()).unwrap_or(today)
+}
+
+/// The day of the oldest visit kept, or `None` before the first.
+pub async fn counting_since(db: &Db) -> toasty::Result<Option<Date>> {
+    let oldest = PageView::all()
+        .order_by(PageView::fields().at().asc())
+        .first()
+        .exec(&mut db.clone())
+        .await?;
+    Ok(oldest
+        .and_then(|view| Timestamp::from_second(view.at).ok())
+        .map(|at| at.to_zoned(TimeZone::system()).date()))
+}
+
+/// The visits from `first` to `last`, both days included, in the server's time zone,
+/// in the order they came.
+async fn views_between(db: &Db, first: Date, last: Date) -> toasty::Result<Vec<PageView>> {
+    let zone = TimeZone::system();
+    let start = |date: Date| {
+        date.to_zoned(zone.clone())
+            .map_or(0, |start| start.timestamp().as_second())
+    };
+    let since = start(first);
+    let until = last.tomorrow().map_or(i64::MAX, start);
+    let mut views = PageView::filter(PageView::fields().at().ge(since))
+        .exec(&mut db.clone())
+        .await?;
+    views.retain(|view| view.at < until);
+    views.sort_by_key(|view| (view.at, view.id));
+    Ok(views)
+}
+
+/// The visitors and the page views from `first` to `last`, both days included.
+pub async fn totals_between(db: &Db, first: Date, last: Date) -> toasty::Result<(usize, usize)> {
+    let views = views_between(db, first, last).await?;
+    let visitors: HashSet<&str> = views.iter().map(|view| view.visitor.as_str()).collect();
+    Ok((visitors.len(), views.len()))
+}
+
+/// The visits of a period.
 pub struct Report {
+    /// The first day of the period.
+    pub first: Date,
+    /// The last day of the period.
+    pub last: Date,
     /// Each day, oldest first, the ones without visits too.
     pub days: Vec<Day>,
     /// People, each counted once a day.
@@ -360,16 +412,15 @@ const LISTED: usize = 10;
 impl Report {
     /// The visits of the last `days` days, today's included, in the server's time zone.
     pub async fn of_last(db: &Db, days: i64) -> toasty::Result<Report> {
-        let zone = TimeZone::system();
-        let today = Zoned::now().date();
+        let today = today();
         let first = today.checked_sub((days - 1).days()).unwrap_or(today);
-        let since = first
-            .to_zoned(zone.clone())
-            .map_or(0, |start| start.timestamp().as_second());
-        let mut views = PageView::filter(PageView::fields().at().ge(since))
-            .exec(&mut db.clone())
-            .await?;
-        views.sort_by_key(|view| (view.at, view.id));
+        Report::between(db, first, today).await
+    }
+
+    /// The visits from `first` to `last`, both days included, in the server's time zone.
+    pub async fn between(db: &Db, first: Date, last: Date) -> toasty::Result<Report> {
+        let zone = TimeZone::system();
+        let views = views_between(db, first, last).await?;
 
         let mut by_day: BTreeMap<Date, (usize, HashSet<&str>)> = BTreeMap::new();
         let mut by_page: HashMap<&str, (usize, HashSet<&str>)> = HashMap::new();
@@ -402,7 +453,7 @@ impl Report {
 
         let mut days_listed = Vec::new();
         let mut date = first;
-        while date <= today {
+        while date <= last {
             let (views, visitors) = by_day
                 .get(&date)
                 .map_or((0, 0), |(views, visitors)| (*views, visitors.len()));
@@ -434,6 +485,8 @@ impl Report {
         referrers.truncate(LISTED);
 
         Ok(Report {
+            first,
+            last,
             days: days_listed,
             visitors: everyone.len(),
             views: views.len(),
@@ -474,9 +527,121 @@ fn tally<'a>(views: &'a [PageView], field: impl Fn(&'a PageView) -> Option<&'a s
     listed
 }
 
+/// One page's visits in a period, and how its visitors found it.
+#[derive(Debug, Default, PartialEq)]
+pub struct PageStats {
+    pub views: usize,
+    /// People who opened it, each counted once a day.
+    pub visitors: usize,
+    /// The visitors whose first page was this one, whom it brought to the site.
+    pub entries: usize,
+    /// Where those visitors came from, most first, with `None` for those who typed the
+    /// address or came from a bookmark.
+    pub sources: Vec<(Option<String>, usize)>,
+    /// The visitors who opened it from a link with each `utm_source`, most first.
+    pub campaigns: Vec<(String, usize)>,
+}
+
+impl PageStats {
+    /// Each page's visits from `first` to `last`, both days included, by path.
+    pub async fn between(
+        db: &Db,
+        first: Date,
+        last: Date,
+    ) -> toasty::Result<HashMap<String, PageStats>> {
+        Ok(page_stats(&views_between(db, first, last).await?))
+    }
+}
+
+/// Each page's visits among `views`, which are in the order they came, by path.
+fn page_stats(views: &[PageView]) -> HashMap<String, PageStats> {
+    #[derive(Default)]
+    struct Draft<'a> {
+        views: usize,
+        visitors: HashSet<&'a str>,
+        sources: HashMap<Option<&'a str>, usize>,
+        campaigns: HashMap<&'a str, HashSet<&'a str>>,
+    }
+    let mut drafts: HashMap<&str, Draft> = HashMap::new();
+    let mut entered = HashSet::new();
+    for view in views {
+        let draft = drafts.entry(&view.path).or_default();
+        draft.views += 1;
+        draft.visitors.insert(&view.visitor);
+        if entered.insert(view.visitor.as_str()) {
+            *draft.sources.entry(view.referrer.as_deref()).or_default() += 1;
+        }
+        if let Some(campaign) = &view.campaign {
+            draft.campaigns.entry(campaign).or_default().insert(&view.visitor);
+        }
+    }
+    drafts
+        .into_iter()
+        .map(|(path, draft)| {
+            let stats = PageStats {
+                views: draft.views,
+                visitors: draft.visitors.len(),
+                entries: draft.sources.values().sum(),
+                sources: most_first(
+                    draft.sources.into_iter().map(|(source, visitors)| (source.map(str::to_owned), visitors)),
+                ),
+                campaigns: most_first(
+                    draft.campaigns.into_iter().map(|(campaign, visitors)| (campaign.to_owned(), visitors.len())),
+                ),
+            };
+            (path.to_owned(), stats)
+        })
+        .collect()
+}
+
+/// The [`LISTED`] rows with the most visitors, most first, and alike ones by name.
+fn most_first<T: Ord>(rows: impl Iterator<Item = (T, usize)>) -> Vec<(T, usize)> {
+    let mut rows: Vec<_> = rows.collect();
+    rows.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    rows.truncate(LISTED);
+    rows
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn view(visitor: &str, path: &str, referrer: Option<&str>, campaign: Option<&str>) -> PageView {
+        PageView {
+            id: 0,
+            at: 0,
+            path: path.to_owned(),
+            visitor: visitor.to_owned(),
+            referrer: referrer.map(str::to_owned),
+            device: None,
+            browser: None,
+            campaign: campaign.map(str::to_owned),
+            browser_id: None,
+        }
+    }
+
+    #[test]
+    fn pages_tell_whom_they_brought_and_from_where() {
+        let views = [
+            view("ana", "/blog/rust", Some("news.ycombinator.com"), None),
+            view("ana", "/blog", None, None),
+            view("bia", "/blog/rust", Some("linkedin.com"), Some("linkedin")),
+            view("bia", "/blog/rust", None, None),
+            view("caio", "/", None, None),
+            view("caio", "/blog/rust", None, Some("newsletter")),
+            view("davi", "/blog/rust", Some("news.ycombinator.com"), None),
+        ];
+        let pages = page_stats(&views);
+        let rust = &pages["/blog/rust"];
+        assert_eq!((rust.views, rust.visitors, rust.entries), (5, 4, 3));
+        assert_eq!(
+            rust.sources,
+            [(Some("news.ycombinator.com".to_owned()), 2), (Some("linkedin.com".to_owned()), 1)]
+        );
+        assert_eq!(rust.campaigns, [("linkedin".to_owned(), 1), ("newsletter".to_owned(), 1)]);
+        assert_eq!(pages["/blog"].entries, 0);
+        assert_eq!(pages["/"].sources, [(None, 1)]);
+    }
 
     #[test]
     fn programs_are_not_visitors() {

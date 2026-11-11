@@ -118,6 +118,31 @@ such as `TZ=America/Sao_Paulo`.
 The visits are in the `page_views` table of the site's database, next to the posts' view
 counts, and are deleted after 400 days, when the site starts.
 
+## MCP
+
+`/admin/mcp` gives the visits to AI agents, such as the marketing ones, through the
+[Model Context Protocol](https://modelcontextprotocol.io), so they can tell how the blog
+does and which posts and shares bring readers:
+
+| Tool | What it does |
+| --- | --- |
+| `site_visits` | The visits of the last 1 to 400 days, or from one day to another, as `/admin` shows them, with the totals of the period just before. |
+| `post_performance` | Every published post, the most read first: its views, visitors, the visitors it brought to the site, their sources and campaigns, and the count the post shows. |
+| `read_post` | A post's text in Markdown, with its title, description, tags and dates. |
+
+It takes the token in `OXPLOY_MCP_TOKEN`, sent as `Authorization: Bearer <token>`, and a
+missing or wrong one gets a 401 after a second; without the variable, nobody gets in.
+oxploy reaches it: turn MCP on in the site's **MCP** tab at the path `/admin/mcp`, not the
+default `/mcp`, since Caddy then hides the path from the site's domains, and oxploy gives
+the site the token and passes its tools on to the organization's tokens.
+
+A link shared with a `utm_source`, such as `https://vitor.ws/blog/<slug>?utm_source=linkedin`,
+shows in the tools as a campaign, which tells which share brought readers.
+
+The server answers each JSON-RPC message, sent by POST, with plain JSON, with no session
+and no event stream, in `src/app/admin/mcp.rs`. Each tool is a file of its own in
+`src/app/admin/mcp/`, with a line in `definitions` and in `call_tool`.
+
 ## Project structure
 
 | Path | Contents |
@@ -127,7 +152,8 @@ counts, and are deleted after 400 days, when the site starts.
 | `src/components.rs`, `src/components/` | Shared UI components that belong to no single feature. |
 | `src/app/privacy.rs` | The privacy page, and the cookie banner. |
 | `src/app/admin.rs` | The admin's page: signing in, and the visits. |
-| `src/features/analytics.rs`, `src/features/admin.rs` | The visits, and the admin's sign-in. |
+| `src/app/admin/mcp.rs`, `src/app/admin/mcp/` | The MCP server, at `/admin/mcp`, and its tools. |
+| `src/features/analytics.rs`, `src/features/admin.rs`, `src/features/mcp.rs` | The visits, the admin's sign-in, and the MCP token. |
 | `src/app/seo.rs` | The structured data for search engines, and the RSS feed. |
 | `scripts/social_image.swift` | Draws `assets/og.jpg`, the picture of shared links. |
 | `src/db.rs` | The database connection. |
