@@ -71,8 +71,8 @@ const AUTHOR: &str = "Vitor de Oliveira";
 /// release is live.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// My GitHub profile, which tells search engines the site and the profile are the
-/// same person.
+/// My GitHub profile, linked from the header and the footer with `rel="me"`, which
+/// tells search engines the site and the profile are the same person.
 const GITHUB: &str = "https://github.com/vitordeoliveira";
 
 /// The description of pages that do not have their own.
@@ -362,16 +362,19 @@ async fn site_header(cx: &Cx) -> Result<impl View> {
                 >
                     "vitor.ws"
                 </a>
+                // Tighter padding and gaps on phones, so the GitHub link and the theme
+                // toggle still fit a 320px screen.
                 navigation_menu(
-                    attrs: attributes! { class="gap-1" },
+                    attrs: attributes! { class="gap-1 max-sm:gap-0.5" },
                     navigation_menu_list(
+                        attrs: attributes! { class="max-sm:gap-0.5" },
                         navigation_menu_item(
                             navigation_menu_link(
                                 variant: NavigationMenuLinkVariant::Trigger,
                                 active: on_blog,
                                 attrs: attributes! {
                                     href=(blog_link)
-                                    class="aria-[current=page]:text-primary"
+                                    class="aria-[current=page]:text-primary max-sm:px-2"
                                 },
                                 "Blog"
                             )
@@ -381,7 +384,10 @@ async fn site_header(cx: &Cx) -> Result<impl View> {
                             // near the right of the header and a panel opening from its left
                             // edge would run off a phone's screen.
                             attrs: attributes! { class="[&>div]:right-0 [&>div]:left-auto" },
-                            navigation_menu_trigger("Projects")
+                            navigation_menu_trigger(
+                                attrs: attributes! { class="max-sm:px-2" },
+                                "Projects"
+                            )
                             navigation_menu_content(
                                 attrs: attributes! { class="w-72" },
                                 for project in PROJECTS {
@@ -426,6 +432,20 @@ async fn site_header(cx: &Cx) -> Result<impl View> {
                             )
                         }
                     )
+                    // `rel="me"` tells search engines the profile is mine.
+                    <a
+                        href=(GITHUB)
+                        target="_blank"
+                        rel="me noopener"
+                        aria-label="GitHub"
+                        title="GitHub"
+                        class=(button_variants(ButtonVariant::Ghost, ButtonSize::Icon))
+                    >
+                        icon(
+                            data: iconify_icon!("simple-icons:github"),
+                            attrs: attributes! { class="size-4" }
+                        )
+                    </a>
                     theme_toggle()
                 )
             </div>
