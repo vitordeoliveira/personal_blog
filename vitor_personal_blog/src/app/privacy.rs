@@ -58,9 +58,15 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                 <p class="text-muted-foreground">"For each page you open, with or without the cookie:"</p>
                 <ul class="flex list-disc flex-col gap-1.5 pl-5 text-muted-foreground">
                     <li>"The page, and when you opened it."</li>
-                    <li>"The site you came from, by its name only, such as github.com."</li>
+                    <li>"The site you came from, by its name only, such as github.com, or the Android app that opened the link, such as Slack."</li>
                     <li>"Whether you are on a phone, a tablet or a computer, and your browser's name, such as Firefox."</li>
-                    <li>"The " <code class="font-mono text-sm text-foreground">"utm_source"</code> " of the link you followed, if it has one, such as newsletter."</li>
+                    <li>
+                        "The " <code class="font-mono text-sm text-foreground">"utm_source"</code> ", "
+                        <code class="font-mono text-sm text-foreground">"utm_medium"</code> ", "
+                        <code class="font-mono text-sm text-foreground">"utm_campaign"</code> " and "
+                        <code class="font-mono text-sm text-foreground">"utm_content"</code>
+                        " of the link you followed, if it has them, such as newsletter and email. They tell which post or share brought you."
+                    </li>
                 </ul>
                 <p class="leading-relaxed text-muted-foreground">
                     "You are counted as a code made from your address and your browser, mixed with a secret and the day. The code changes every day, so your visits on different days cannot be tied together, and your address is not kept. Programs, such as search engines, are not counted. Visits are deleted after 400 days."

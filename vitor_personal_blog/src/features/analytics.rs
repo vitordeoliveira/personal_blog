@@ -16,7 +16,8 @@ use sha2::{Digest, Sha256};
 use toasty::Db;
 use topcoat::context::{Cx, app_context};
 use topcoat::cookie::{Cookie, Cookies, SameSite, cookies, time::Duration};
-use topcoat::router::request::{headers, original_headers, remote_addr, uri};
+use topcoat::router::Method;
+use topcoat::router::request::{headers, method, original_headers, remote_addr, uri};
 
 /// One page someone opened.
 #[derive(Debug, toasty::Model)]
@@ -35,7 +36,9 @@ pub struct PageView {
     /// Who opened it, as a hash that changes every day.
     pub visitor: String,
 
-    /// The site the visitor came from, such as `github.com`, when it was another one.
+    /// The site the visitor came from, such as `github.com`, when it was another one, or
+    /// the Android app that opened the link, as `app:` and its package, such as
+    /// `app:com.slack`.
     pub referrer: Option<String>,
 
     /// The kind of device: `Mobile`, `Tablet` or `Desktop`.
@@ -47,6 +50,15 @@ pub struct PageView {
     /// The campaign in the link the visitor followed, its `utm_source`, such as
     /// `newsletter`.
     pub campaign: Option<String>,
+
+    /// The link's `utm_medium`, such as `bio`, kept like [`campaign`](Self::campaign).
+    pub utm_medium: Option<String>,
+
+    /// The link's `utm_campaign`, such as `oxploy-launch`.
+    pub utm_campaign: Option<String>,
+
+    /// The link's `utm_content`, such as `thread-1`, which tells posts apart.
+    pub utm_content: Option<String>,
 
     /// A hash of the ID in the visitor's cookie, when they accepted it, which stays
     /// the same from one day to the next.
@@ -66,6 +78,9 @@ pub struct AnalyticsKey {
 
 /// How long visits are kept.
 pub const KEPT_DAYS: i64 = 400;
+
+/// The time zone the visits' days and hours are in: the admin's, Brasília's.
+const TIME_ZONE: &str = "America/Sao_Paulo";
 
 /// The cookie with the visitor's choice: `yes` or `no`. It only remembers the choice, so
 /// it needs no consent of its own.
@@ -118,11 +133,11 @@ impl Analytics {
         app_context::<Analytics>(cx)
     }
 
-    /// Counts the page this request opens, unless a program opened it, or the browser
-    /// runtime asked for it again. It is saved on a task of its own, so the page does
-    /// not wait for it.
+    /// Counts the page this request opens, unless a program opened it, the browser is
+    /// only prefetching it, or the browser runtime asked for it again. It is saved on a
+    /// task of its own, so the page does not wait for it.
     pub fn record(&self, cx: &Cx) {
-        if original_headers(cx).contains_key("x-topcoat-runtime") {
+        if method(cx) != Method::GET {
             return;
         }
         let header = |name: &str| {
@@ -133,6 +148,12 @@ impl Analytics {
                 .trim()
                 .to_owned()
         };
+        let prefetch = [header("sec-purpose"), header("purpose")]
+            .iter()
+            .any(|purpose| purpose.contains("prefetch"));
+        if prefetch || original_headers(cx).contains_key("x-topcoat-runtime") {
+            return;
+        }
         let agent = header("user-agent");
         if is_bot(&agent) {
             return;
@@ -146,7 +167,7 @@ impl Analytics {
             .or_else(|| remote_addr(cx).map(|address| address.ip().to_string()))
             .unwrap_or_default();
         let referrer = referrer_host(&header("referer"), &header("host"));
-        let now = Zoned::now();
+        let now = Zoned::now().with_time_zone(time_zone());
         let visitor = visitor_hash(&self.key, now.date(), &address, &agent);
         let browser_id = (choice(cx) == Some(true))
             .then(|| cookies(cx).get(ID_COOKIE))
@@ -154,6 +175,7 @@ impl Analytics {
             .map(|cookie| cookie.value().to_owned())
             .filter(|id| id.len() == 32 && id.bytes().all(|byte| byte.is_ascii_hexdigit()))
             .map(|id| keyed_hash(&self.key, &["cookie", &id]));
+        let query = uri(cx).query().unwrap_or("");
         let view = PageView {
             id: 0,
             at: now.timestamp().as_second(),
@@ -162,7 +184,10 @@ impl Analytics {
             referrer,
             device: Some(device(&agent).to_owned()),
             browser: Some(browser(&agent).to_owned()),
-            campaign: uri(cx).query().and_then(campaign),
+            campaign: utm(query, "utm_source"),
+            utm_medium: utm(query, "utm_medium"),
+            utm_campaign: utm(query, "utm_campaign"),
+            utm_content: utm(query, "utm_content"),
             browser_id,
         };
         let mut db = self.db.clone();
@@ -175,6 +200,9 @@ impl Analytics {
                 device: view.device,
                 browser: view.browser,
                 campaign: view.campaign,
+                utm_medium: view.utm_medium,
+                utm_campaign: view.utm_campaign,
+                utm_content: view.utm_content,
                 browser_id: view.browser_id,
             })
             .exec(&mut db)
@@ -252,19 +280,43 @@ fn browser(agent: &str) -> &'static str {
     .map_or("Other", |(_, name)| name)
 }
 
-/// The `utm_source` of a query, such as `newsletter`, kept to letters, digits, `.`, `-`
-/// and `_`. The rest of the query is not kept, as it may hold anything.
-fn campaign(query: &str) -> Option<String> {
+/// The value of `key` in a query, such as `newsletter` for `utm_source`: decoded, in
+/// lowercase, with spaces as `-`, and kept to letters, digits, `.`, `-` and `_`, up to 50
+/// of them. The rest of the query is not kept, as it may hold anything.
+fn utm(query: &str, key: &str) -> Option<String> {
     let value = query
         .split('&')
-        .find_map(|pair| pair.strip_prefix("utm_source="))?;
-    let source: String = value
-        .to_ascii_lowercase()
+        .find_map(|pair| pair.strip_prefix(key)?.strip_prefix('='))?;
+    let kept: String = percent_decode(value)
+        .to_lowercase()
         .chars()
+        .map(|c| if c.is_whitespace() { '-' } else { c })
         .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
         .take(50)
         .collect();
-    (!source.is_empty()).then_some(source)
+    let kept = kept.trim_matches('-');
+    (!kept.is_empty()).then(|| kept.to_owned())
+}
+
+/// A query value with its `%XX` escapes and `+` decoded.
+fn percent_decode(value: &str) -> String {
+    let digit = |byte: Option<&u8>| char::from(*byte?).to_digit(16);
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while let Some(&byte) = bytes.get(index) {
+        match (byte, digit(bytes.get(index + 1)), digit(bytes.get(index + 2))) {
+            (b'%', Some(high), Some(low)) => {
+                decoded.push((high * 16 + low) as u8);
+                index += 3;
+            }
+            _ => {
+                decoded.push(if byte == b'+' { b' ' } else { byte });
+                index += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&decoded).into_owned()
 }
 
 /// Whether a user agent is a program's, such as a search engine's.
@@ -274,8 +326,17 @@ fn is_bot(agent: &str) -> bool {
 }
 
 /// The site a visitor came from, from the `Referer` header, when it is not this one:
-/// its host without `www.`.
+/// its host without `www.`. An Android app that opened the link says so as
+/// `android-app://` and its package, kept as `app:` and the package, such as
+/// `app:com.slack`.
 fn referrer_host(referer: &str, own_host: &str) -> Option<String> {
+    if let Some(app) = referer.strip_prefix("android-app://") {
+        let package = app.split(['/', '?', '#']).next()?.to_ascii_lowercase();
+        let valid = !package.is_empty()
+            && package.len() <= 100
+            && package.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_'));
+        return valid.then(|| format!("app:{package}"));
+    }
     let rest = referer
         .strip_prefix("https://")
         .or_else(|| referer.strip_prefix("http://"))?;
@@ -283,6 +344,86 @@ fn referrer_host(referer: &str, own_host: &str) -> Option<String> {
     let own = own_host.split(':').next().unwrap_or("").to_ascii_lowercase();
     let bare = |host: &str| host.strip_prefix("www.").unwrap_or(host).to_owned();
     (!host.is_empty() && bare(&host) != bare(&own)).then(|| bare(&host))
+}
+
+/// Who sent a visitor, as people call it, from the referrer the site keeps: `X (Twitter)`
+/// for `t.co`, `Hacker News` for `news.ycombinator.com`, `Google` for `google.com.br`,
+/// and so on. Another site keeps its host, and another app its package.
+pub fn source_name(referrer: &str) -> String {
+    let is = |domain: &str| referrer == domain || referrer.ends_with(&format!(".{domain}"));
+    let google = referrer.split('.').next() == Some("google") || is("google.com");
+    let name = if is("t.co") || is("x.com") || is("twitter.com") {
+        "X (Twitter)"
+    } else if is("linkedin.com") || is("lnkd.in") || referrer == "app:com.linkedin.android" {
+        "LinkedIn"
+    } else if referrer == "news.ycombinator.com" {
+        "Hacker News"
+    } else if is("reddit.com") || referrer == "app:com.reddit.frontpage" {
+        "Reddit"
+    } else if is("github.com") {
+        "GitHub"
+    } else if is("lobste.rs") {
+        "Lobsters"
+    } else if is("bsky.app") {
+        "Bluesky"
+    } else if is("slack.com") || referrer == "app:com.slack" {
+        "Slack"
+    } else if is("discord.com") || referrer == "app:com.discord" {
+        "Discord"
+    } else if is("instagram.com") || referrer == "app:com.instagram.android" {
+        "Instagram"
+    } else if is("facebook.com")
+        || is("fb.com")
+        || is("fb.me")
+        || referrer.starts_with("app:com.facebook.")
+    {
+        "Facebook"
+    } else if is("whatsapp.com") || is("wa.me") || referrer.starts_with("app:com.whatsapp") {
+        "WhatsApp"
+    } else if is("t.me") || is("telegram.org") || referrer == "app:org.telegram.messenger" {
+        "Telegram"
+    } else if referrer == "mail.google.com" || referrer == "app:com.google.android.gm" {
+        "Gmail"
+    } else if is("youtube.com") || is("youtu.be") || referrer == "app:com.google.android.youtube" {
+        "YouTube"
+    } else if google || referrer == "app:com.google.android.googlequicksearchbox" {
+        "Google"
+    } else if is("bing.com") {
+        "Bing"
+    } else if is("duckduckgo.com") {
+        "DuckDuckGo"
+    } else if is("chatgpt.com") || is("chat.openai.com") {
+        "ChatGPT"
+    } else if is("perplexity.ai") {
+        "Perplexity"
+    } else {
+        return referrer.strip_prefix("app:").unwrap_or(referrer).to_owned();
+    };
+    name.to_owned()
+}
+
+/// Who sent a visitor whose browser did not say, from the `utm_source` of the link they
+/// followed: `X (Twitter)` for `x` or `twitter`, and so on, or the tag itself.
+pub fn tagged_source_name(source: &str) -> String {
+    let name = match source {
+        "x" | "twitter" => "X (Twitter)",
+        "linkedin" => "LinkedIn",
+        "hn" | "hackernews" | "hacker-news" => "Hacker News",
+        "reddit" => "Reddit",
+        "github" | "gh" => "GitHub",
+        "lobsters" => "Lobsters",
+        "bluesky" | "bsky" => "Bluesky",
+        "slack" => "Slack",
+        "discord" => "Discord",
+        "instagram" | "ig" => "Instagram",
+        "facebook" | "fb" => "Facebook",
+        "whatsapp" | "wa" => "WhatsApp",
+        "telegram" => "Telegram",
+        "youtube" | "yt" => "YouTube",
+        "google" => "Google",
+        other => return other.to_owned(),
+    };
+    name.to_owned()
 }
 
 /// A visitor's hash for `day`: the same for one address and browser all day, and
@@ -306,9 +447,14 @@ fn keyed_hash(key: &[u8], parts: &[&str]) -> String {
         .collect()
 }
 
-/// Today, in the server's time zone.
+/// The time zone a visit's day and hour are in.
+pub fn time_zone() -> TimeZone {
+    TimeZone::get(TIME_ZONE).unwrap_or(TimeZone::UTC)
+}
+
+/// Today, in [`time_zone`].
 pub fn today() -> Date {
-    Zoned::now().date()
+    Zoned::now().with_time_zone(time_zone()).date()
 }
 
 /// The oldest day whose visits are still kept, [`KEPT_DAYS`] back from today included.
@@ -326,13 +472,13 @@ pub async fn counting_since(db: &Db) -> toasty::Result<Option<Date>> {
         .await?;
     Ok(oldest
         .and_then(|view| Timestamp::from_second(view.at).ok())
-        .map(|at| at.to_zoned(TimeZone::system()).date()))
+        .map(|at| at.to_zoned(time_zone()).date()))
 }
 
-/// The visits from `first` to `last`, both days included, in the server's time zone,
-/// in the order they came.
+/// The visits from `first` to `last`, both days included, in [`time_zone`], in the order
+/// they came.
 async fn views_between(db: &Db, first: Date, last: Date) -> toasty::Result<Vec<PageView>> {
-    let zone = TimeZone::system();
+    let zone = time_zone();
     let start = |date: Date| {
         date.to_zoned(zone.clone())
             .map_or(0, |start| start.timestamp().as_second())
@@ -354,31 +500,32 @@ pub async fn totals_between(db: &Db, first: Date, last: Date) -> toasty::Result<
     Ok((visitors.len(), views.len()))
 }
 
-/// The visits of a period.
+/// The visits of a period: its days, both ends included, in [`time_zone`].
 pub struct Report {
-    /// The first day of the period.
     pub first: Date,
-    /// The last day of the period.
     pub last: Date,
     /// Each day, oldest first, the ones without visits too.
     pub days: Vec<Day>,
+    /// Each hour of the day, from 0 to 23, summed over the period's days.
+    pub hours: Vec<Hour>,
     /// People, each counted once a day.
     pub visitors: usize,
     pub views: usize,
     /// The pages most opened, most first.
     pub pages: Vec<Row>,
-    /// Where visitors came from, by the first page each opened, most first, with `None`
-    /// for those who typed the address or came from a bookmark.
-    pub referrers: Vec<(Option<String>, usize)>,
+    /// Who sent the visitors, by the first page each opened, most first.
+    pub sources: Vec<Source>,
     /// The visitors on each kind of device, most first.
     pub devices: Vec<(String, usize)>,
     /// The visitors on each browser, most first.
     pub browsers: Vec<(String, usize)>,
-    /// The visitors who followed a link with each `utm_source`, most first.
-    pub campaigns: Vec<(String, usize)>,
+    /// The visitors who followed a link with a `utm_source`, by its tags, most first.
+    pub campaigns: Vec<Campaign>,
+    /// Each visitor's pages on each day, the latest first, up to [`VISITS_LISTED`].
+    pub visits: Vec<Visit>,
     /// What the cookie tells, among the visitors who accepted it.
     pub accepted: Accepted,
-    /// The time zone the days are in, such as `UTC`.
+    /// The time zone the days are in, such as `America/Sao_Paulo`.
     pub time_zone: String,
 }
 
@@ -399,6 +546,15 @@ pub struct Day {
     pub visitors: usize,
 }
 
+/// One hour's visits, such as from 14:00 to 15:00, over the period's days.
+pub struct Hour {
+    /// The hour it starts at, from 0 to 23.
+    pub hour: i8,
+    pub views: usize,
+    /// The visitors who opened a page in that hour, each counted once a day.
+    pub visitors: usize,
+}
+
 /// One page's visits.
 pub struct Row {
     pub path: String,
@@ -406,63 +562,128 @@ pub struct Row {
     pub visitors: usize,
 }
 
-/// How many pages and sources a report lists.
+/// The visitors one source sent.
+#[derive(Debug, PartialEq)]
+pub struct Source {
+    /// Who sent them, as [`source_name`] calls it. When their browser did not say, it is
+    /// the `utm_source` of their first page, as [`tagged_source_name`] calls it, and
+    /// without one, `None`: they typed the address, came from a bookmark, or from an app
+    /// that does not say.
+    pub name: Option<String>,
+    pub visitors: usize,
+}
+
+/// The visitors one campaign brought: those whose first link had these tags.
+#[derive(Debug, PartialEq)]
+pub struct Campaign {
+    /// The `utm_source`.
+    pub source: String,
+    pub medium: Option<String>,
+    /// The `utm_campaign`.
+    pub name: Option<String>,
+    pub content: Option<String>,
+    pub visitors: usize,
+}
+
+/// One visitor on one day: when they came, from where, and the pages they opened.
+pub struct Visit {
+    /// When they opened their first page.
+    pub start: Timestamp,
+    /// When they opened their last page.
+    pub end: Timestamp,
+    /// The pages, in the order they opened them.
+    pub pages: Vec<String>,
+    /// Who sent them, as in [`Source::name`].
+    pub source: Option<String>,
+    /// The tags of the first link with a `utm_source` they followed, such as
+    /// `x · bio · profile`.
+    pub campaign: Option<String>,
+    pub device: Option<String>,
+    pub browser: Option<String>,
+}
+
+/// How many pages, sources, devices and browsers a report lists.
 const LISTED: usize = 10;
 
+/// How many campaigns a report lists.
+const CAMPAIGNS_LISTED: usize = 20;
+
+/// How many visits a report lists, the latest ones.
+pub const VISITS_LISTED: usize = 100;
+
+/// One visitor's day as it is gathered, before it becomes a [`Visit`].
+struct Draft<'a> {
+    first: &'a PageView,
+    last: &'a PageView,
+    pages: Vec<&'a str>,
+    /// Their first view whose link had a `utm_source`.
+    tagged: Option<&'a PageView>,
+}
+
 impl Report {
-    /// The visits of the last `days` days, today's included, in the server's time zone.
-    pub async fn of_last(db: &Db, days: i64) -> toasty::Result<Report> {
-        let today = today();
-        let first = today.checked_sub((days - 1).days()).unwrap_or(today);
-        Report::between(db, first, today).await
+    /// The visits from `first` to `last`, both days included, in [`time_zone`].
+    pub async fn between(db: &Db, first: Date, last: Date) -> toasty::Result<Report> {
+        Ok(Report::of(first, last, &views_between(db, first, last).await?))
     }
 
-    /// The visits from `first` to `last`, both days included, in the server's time zone.
-    pub async fn between(db: &Db, first: Date, last: Date) -> toasty::Result<Report> {
-        let zone = TimeZone::system();
-        let views = views_between(db, first, last).await?;
-
+    /// The report of `views`, the visits from `first` to `last` in the order they came.
+    fn of(first: Date, last: Date, views: &[PageView]) -> Report {
+        let zone = time_zone();
         let mut by_day: BTreeMap<Date, (usize, HashSet<&str>)> = BTreeMap::new();
+        let mut by_hour: [(usize, HashSet<&str>); 24] = Default::default();
         let mut by_page: HashMap<&str, (usize, HashSet<&str>)> = HashMap::new();
-        // A visitor's later pages come from the site itself.
-        let mut entered_from: HashMap<&str, Option<&str>> = HashMap::new();
-        let mut everyone = HashSet::new();
+        // Each visitor's day, in the order they first came.
+        let mut drafts: Vec<Draft> = Vec::new();
+        let mut draft_of: HashMap<&str, usize> = HashMap::new();
         // The days each browser that accepted the cookie came on.
         let mut by_browser: HashMap<&str, HashSet<Date>> = HashMap::new();
         let mut accepting = HashSet::new();
-        for view in &views {
+        for view in views {
             let Ok(at) = Timestamp::from_second(view.at) else {
                 continue;
             };
-            let date = at.to_zoned(zone.clone()).date();
+            let at = at.to_zoned(zone.clone());
             if let Some(browser) = &view.browser_id {
-                by_browser.entry(browser).or_default().insert(date);
+                by_browser.entry(browser).or_default().insert(at.date());
                 accepting.insert(view.visitor.as_str());
             }
-            let day = by_day.entry(date).or_default();
+            let day = by_day.entry(at.date()).or_default();
             day.0 += 1;
             day.1.insert(&view.visitor);
+            let hour = &mut by_hour[at.hour().clamp(0, 23) as usize];
+            hour.0 += 1;
+            hour.1.insert(&view.visitor);
             let page = by_page.entry(&view.path).or_default();
             page.0 += 1;
             page.1.insert(&view.visitor);
-            entered_from
-                .entry(&view.visitor)
-                .or_insert(view.referrer.as_deref());
-            everyone.insert(view.visitor.as_str());
+            let index = *draft_of.entry(&view.visitor).or_insert_with(|| {
+                drafts.push(Draft { first: view, last: view, pages: Vec::new(), tagged: None });
+                drafts.len() - 1
+            });
+            let draft = &mut drafts[index];
+            draft.last = view;
+            draft.pages.push(&view.path);
+            if draft.tagged.is_none() && view.campaign.is_some() {
+                draft.tagged = Some(view);
+            }
         }
 
-        let mut days_listed = Vec::new();
+        let mut days = Vec::new();
         let mut date = first;
         while date <= last {
             let (views, visitors) = by_day
                 .get(&date)
                 .map_or((0, 0), |(views, visitors)| (*views, visitors.len()));
-            days_listed.push(Day { date, views, visitors });
+            days.push(Day { date, views, visitors });
             match date.tomorrow() {
                 Ok(next) => date = next,
                 Err(_) => break,
             }
         }
+        let hours = (0..24)
+            .zip(&by_hour)
+            .map(|(hour, (views, visitors))| Hour { hour, views: *views, visitors: visitors.len() })
+            .collect();
         let mut pages: Vec<Row> = by_page
             .into_iter()
             .map(|(path, (views, visitors))| Row {
@@ -473,36 +694,92 @@ impl Report {
             .collect();
         pages.sort_by(|a, b| b.views.cmp(&a.views).then(a.path.cmp(&b.path)));
         pages.truncate(LISTED);
-        let mut by_referrer: HashMap<Option<&str>, usize> = HashMap::new();
-        for referrer in entered_from.into_values() {
-            *by_referrer.entry(referrer).or_default() += 1;
-        }
-        let mut referrers: Vec<(Option<String>, usize)> = by_referrer
-            .into_iter()
-            .map(|(referrer, visitors)| (referrer.map(str::to_owned), visitors))
-            .collect();
-        referrers.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-        referrers.truncate(LISTED);
 
-        Ok(Report {
+        let name = |draft: &Draft| {
+            draft.first.referrer.as_deref().map(source_name).or_else(|| {
+                draft.first.campaign.as_deref().map(tagged_source_name)
+            })
+        };
+        let mut by_source: HashMap<Option<String>, usize> = HashMap::new();
+        let mut by_campaign: HashMap<[Option<&str>; 4], usize> = HashMap::new();
+        for draft in &drafts {
+            *by_source.entry(name(draft)).or_default() += 1;
+            if let Some(tagged) = draft.tagged {
+                *by_campaign.entry(tags(tagged)).or_default() += 1;
+            }
+        }
+        let sources = most_first(by_source.into_iter())
+            .into_iter()
+            .map(|(name, visitors)| Source { name, visitors })
+            .collect();
+        let owned = |tag: Option<&str>| tag.map(str::to_owned);
+        let mut campaigns: Vec<Campaign> = by_campaign
+            .into_iter()
+            .map(|([source, medium, name, content], visitors)| Campaign {
+                source: source.unwrap_or_default().to_owned(),
+                medium: owned(medium),
+                name: owned(name),
+                content: owned(content),
+                visitors,
+            })
+            .collect();
+        campaigns.sort_by(|a, b| {
+            b.visitors.cmp(&a.visitors).then_with(|| {
+                (&a.source, &a.medium, &a.name, &a.content)
+                    .cmp(&(&b.source, &b.medium, &b.name, &b.content))
+            })
+        });
+        campaigns.truncate(CAMPAIGNS_LISTED);
+
+        // The drafts are in the order the visitors first came, so the latest last.
+        let visits: Vec<Visit> = drafts
+            .iter()
+            .rev()
+            .take(VISITS_LISTED)
+            .map(|draft| Visit {
+                start: Timestamp::from_second(draft.first.at).unwrap_or_default(),
+                end: Timestamp::from_second(draft.last.at).unwrap_or_default(),
+                pages: draft.pages.iter().map(|page| (*page).to_owned()).collect(),
+                source: name(draft),
+                campaign: draft.tagged.map(|tagged| {
+                    tags(tagged).into_iter().flatten().collect::<Vec<_>>().join(" · ")
+                }),
+                device: draft.first.device.clone(),
+                browser: draft.first.browser.clone(),
+            })
+            .collect();
+
+        Report {
             first,
             last,
-            days: days_listed,
-            visitors: everyone.len(),
+            days,
+            hours,
+            visitors: drafts.len(),
             views: views.len(),
             pages,
-            referrers,
-            devices: tally(&views, |view| view.device.as_deref()),
-            browsers: tally(&views, |view| view.browser.as_deref()),
-            campaigns: tally(&views, |view| view.campaign.as_deref()),
+            sources,
+            devices: tally(views, |view| view.device.as_deref()),
+            browsers: tally(views, |view| view.browser.as_deref()),
+            campaigns,
+            visits,
             accepted: Accepted {
                 browsers: by_browser.len(),
                 returning: by_browser.values().filter(|days| days.len() > 1).count(),
                 visitors: accepting.len(),
             },
             time_zone: zone.iana_name().unwrap_or("UTC").to_owned(),
-        })
+        }
     }
+}
+
+/// A view's link tags: its `utm_source`, `utm_medium`, `utm_campaign` and `utm_content`.
+fn tags(view: &PageView) -> [Option<&str>; 4] {
+    [
+        view.campaign.as_deref(),
+        view.utm_medium.as_deref(),
+        view.utm_campaign.as_deref(),
+        view.utm_content.as_deref(),
+    ]
 }
 
 /// How many visitors have each value of `field`, from the first of their views that
@@ -518,13 +795,7 @@ fn tally<'a>(views: &'a [PageView], field: impl Fn(&'a PageView) -> Option<&'a s
     for value in first.into_values() {
         *counts.entry(value).or_default() += 1;
     }
-    let mut listed: Vec<(String, usize)> = counts
-        .into_iter()
-        .map(|(value, visitors)| (value.to_owned(), visitors))
-        .collect();
-    listed.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-    listed.truncate(LISTED);
-    listed
+    most_first(counts.into_iter().map(|(value, visitors)| (value.to_owned(), visitors)))
 }
 
 /// One page's visits in a period, and how its visitors found it.
@@ -616,6 +887,9 @@ mod tests {
             device: None,
             browser: None,
             campaign: campaign.map(str::to_owned),
+            utm_medium: None,
+            utm_campaign: None,
+            utm_content: None,
             browser_id: None,
         }
     }
@@ -644,6 +918,67 @@ mod tests {
     }
 
     #[test]
+    fn reports_tell_who_sent_each_visitor_by_hour_and_campaign() {
+        let at = |time: &str| {
+            format!("2026-11-12T{time}:00-03:00")
+                .parse::<Timestamp>()
+                .unwrap()
+                .as_second()
+        };
+        let tagged = |mut view: PageView, medium: &str, name: Option<&str>, content: Option<&str>| {
+            view.utm_medium = Some(medium.to_owned());
+            view.utm_campaign = name.map(str::to_owned);
+            view.utm_content = content.map(str::to_owned);
+            view
+        };
+        let at_time = |mut view: PageView, time: &str| {
+            view.at = at(time);
+            view
+        };
+        let views = [
+            at_time(tagged(view("ana", "/", Some("t.co"), Some("x")), "bio", Some("profile"), Some("link")), "14:00"),
+            at_time(view("ana", "/blog/oxploy", None, None), "14:05"),
+            at_time(tagged(view("bia", "/blog/rust", None, Some("linkedin")), "post", None, None), "15:10"),
+            at_time(view("caio", "/", Some("news.ycombinator.com"), None), "15:20"),
+            at_time(view("davi", "/", None, None), "16:00"),
+        ];
+        let day = Date::constant(2026, 11, 12);
+        let report = Report::of(day, day, &views);
+
+        assert_eq!((report.visitors, report.views), (4, 5));
+        assert_eq!((report.hours[14].views, report.hours[14].visitors), (2, 1));
+        assert_eq!((report.hours[15].views, report.hours[15].visitors), (2, 2));
+        let names: Vec<_> = report.sources.iter().map(|source| source.name.as_deref()).collect();
+        assert_eq!(names, [None, Some("Hacker News"), Some("LinkedIn"), Some("X (Twitter)")]);
+        assert_eq!(
+            report.campaigns,
+            [
+                Campaign {
+                    source: "linkedin".to_owned(),
+                    medium: Some("post".to_owned()),
+                    name: None,
+                    content: None,
+                    visitors: 1,
+                },
+                Campaign {
+                    source: "x".to_owned(),
+                    medium: Some("bio".to_owned()),
+                    name: Some("profile".to_owned()),
+                    content: Some("link".to_owned()),
+                    visitors: 1,
+                },
+            ]
+        );
+        let ana = report.visits.last().unwrap();
+        assert_eq!(ana.pages, ["/", "/blog/oxploy"]);
+        assert_eq!(ana.source.as_deref(), Some("X (Twitter)"));
+        assert_eq!(ana.campaign.as_deref(), Some("x · bio · profile · link"));
+        assert_eq!(ana.end.as_second() - ana.start.as_second(), 300);
+        assert_eq!(report.visits[0].pages, ["/"]);
+        assert_eq!(report.visits[0].source, None);
+    }
+
+    #[test]
     fn programs_are_not_visitors() {
         assert!(is_bot(""));
         assert!(is_bot("Mozilla/5.0 (compatible; Googlebot/2.1)"));
@@ -652,15 +987,32 @@ mod tests {
     }
 
     #[test]
-    fn referrers_are_other_sites() {
+    fn referrers_are_other_sites_or_apps() {
         assert_eq!(referrer_host("https://github.com/vitordeoliveira/oxploy", "vitor.ws"), Some("github.com".to_owned()));
         assert_eq!(referrer_host("https://www.google.com/", "vitor.ws"), Some("google.com".to_owned()));
         assert_eq!(referrer_host("https://news.ycombinator.com/item?id=1", "vitor.ws"), Some("news.ycombinator.com".to_owned()));
         assert_eq!(referrer_host("https://vitor.ws/blog", "vitor.ws"), None);
         assert_eq!(referrer_host("https://www.vitor.ws/", "vitor.ws"), None);
         assert_eq!(referrer_host("http://127.0.0.1:3000/", "127.0.0.1:3000"), None);
-        assert_eq!(referrer_host("android-app://com.slack/", "vitor.ws"), None);
+        assert_eq!(referrer_host("android-app://com.slack/", "vitor.ws"), Some("app:com.slack".to_owned()));
+        assert_eq!(referrer_host("android-app://com sla<ck>/", "vitor.ws"), None);
         assert_eq!(referrer_host("", "vitor.ws"), None);
+    }
+
+    #[test]
+    fn sources_read_as_people_call_them() {
+        assert_eq!(source_name("t.co"), "X (Twitter)");
+        assert_eq!(source_name("news.ycombinator.com"), "Hacker News");
+        assert_eq!(source_name("old.reddit.com"), "Reddit");
+        assert_eq!(source_name("lnkd.in"), "LinkedIn");
+        assert_eq!(source_name("app:com.slack"), "Slack");
+        assert_eq!(source_name("google.com.br"), "Google");
+        assert_eq!(source_name("mail.google.com"), "Gmail");
+        assert_eq!(source_name("blog.example.com"), "blog.example.com");
+        assert_eq!(source_name("app:com.example.reader"), "com.example.reader");
+        assert_eq!(tagged_source_name("x"), "X (Twitter)");
+        assert_eq!(tagged_source_name("hn"), "Hacker News");
+        assert_eq!(tagged_source_name("newsletter"), "newsletter");
     }
 
     #[test]
@@ -678,12 +1030,19 @@ mod tests {
     }
 
     #[test]
-    fn campaigns_keep_only_their_source() {
-        assert_eq!(campaign("utm_source=Newsletter&utm_medium=email"), Some("newsletter".to_owned()));
-        assert_eq!(campaign("ref=x&utm_source=reddit.com"), Some("reddit.com".to_owned()));
-        assert_eq!(campaign("utm_source=%3Cscript%3E"), Some("3cscript3e".to_owned()));
-        assert_eq!(campaign("utm_source="), None);
-        assert_eq!(campaign("page=2"), None);
+    fn campaign_tags_are_kept_clean() {
+        let source = |query: &str| utm(query, "utm_source");
+        assert_eq!(source("utm_source=Newsletter&utm_medium=email"), Some("newsletter".to_owned()));
+        assert_eq!(source("ref=x&utm_source=reddit.com"), Some("reddit.com".to_owned()));
+        assert_eq!(source("utm_source=%3Cscript%3E"), Some("script".to_owned()));
+        assert_eq!(source(&format!("utm_source={}", "a".repeat(80))).map(|s| s.len()), Some(50));
+        assert_eq!(source("utm_source="), None);
+        assert_eq!(source("utm_sourcex=x"), None);
+        assert_eq!(source("page=2"), None);
+        let query = "utm_source=x&utm_medium=bio&utm_campaign=Oxploy+Launch&utm_content=thread%201";
+        assert_eq!(utm(query, "utm_medium"), Some("bio".to_owned()));
+        assert_eq!(utm(query, "utm_campaign"), Some("oxploy-launch".to_owned()));
+        assert_eq!(utm(query, "utm_content"), Some("thread-1".to_owned()));
     }
 
     #[test]

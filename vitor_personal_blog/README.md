@@ -95,9 +95,10 @@ The site counts the visits to its pages on its own server, with no analytics ser
 without keeping anyone's address. A visitor is a hash of their address and browser, made
 with a secret key the site creates on its first start and the day, so the same person
 counts once a day and cannot be followed from one day to the next. Each visit also keeps
-the page, the time, the host of the site the visitor came from, the kind of device, the
-browser's name and the link's `utm_source`. Programs, such as search engines, are left
-out, and so are the browser runtime's own requests. Only the home page, the blog and the
+the page, the time, the host of the site the visitor came from or the Android app that
+opened the link, the kind of device, the browser's name and the link's `utm_source`,
+`utm_medium`, `utm_campaign` and `utm_content`. Programs, such as search engines, are left
+out, and so are prefetches and the browser runtime's own requests. Only the home page, the blog and the
 published posts count, as `counts_as_visit` in `src/app.rs` lists them, so a new page goes
 there too.
 
@@ -108,12 +109,19 @@ day; the site stores a hash of it, never the ID. The answer goes without reloadi
 and a plain form sends it when JavaScript is off. `/privacy` explains all of it, the `theme`
 cookie too, and lets visitors change their answer.
 
-`/admin` shows the visits of the last 7, 30 or 90 days: visitors, page views, each day's, the
-pages most opened, where visitors came from, their devices, browsers and campaigns, and,
-among those who accepted the cookie, how many came back. Its name and password are
-`ADMIN_USERNAME` and `ADMIN_PASSWORD`; without both, nobody can sign in. Once signed in, the
-header links to it on every page. Days are in the server's time zone, which `TZ` changes,
-such as `TZ=America/Sao_Paulo`.
+`/admin` shows the visits of today, yesterday, the last 7, 30 or 90 days, or any days from
+one date to another within the 400 days kept: visitors, page views, each day's, each hour's
+(a single day is charted by hour, a longer period by day and by hour of the day summed over
+its days), the pages most opened, the sources, the campaigns, each visitor's day, their
+devices and browsers, and, among those who accepted the cookie, how many came back.
+Sources read as people call them, such as X (Twitter) for `t.co` or Hacker News for
+`news.ycombinator.com`, and fall back to the link's `utm_source` when the browser says
+nothing. Campaigns list the `utm_source`, `utm_medium`, `utm_campaign` and `utm_content` of
+the first tagged link each visitor followed. The latest 100 visits are listed too: when each
+visitor came, for how long, from where, on what, and the pages in order. Its name and
+password are `ADMIN_USERNAME` and `ADMIN_PASSWORD`; without both, nobody can sign in. Once
+signed in, the header links to it on every page. Days and times are in Brasília time,
+`America/Sao_Paulo`, whatever the server's time zone.
 
 The visits are in the `page_views` table of the site's database, next to the posts' view
 counts, and are deleted after 400 days, when the site starts.
@@ -126,7 +134,7 @@ does and which posts and shares bring readers:
 
 | Tool | What it does |
 | --- | --- |
-| `site_visits` | The visits of the last 1 to 400 days, or from one day to another, as `/admin` shows them, with the totals of the period just before. |
+| `site_visits` | The visits of the last 1 to 400 days, or from one day to another, as `/admin` shows them: each day and hour, sources, campaigns by their four tags and the latest 50 visits, with the totals of the period just before. |
 | `post_performance` | Every published post, the most read first: its views, visitors, the visitors it brought to the site, their sources and campaigns, and the count the post shows. |
 | `read_post` | A post's text in Markdown, with its title, description, tags and dates. |
 
@@ -136,8 +144,9 @@ oxploy reaches it: turn MCP on in the site's **MCP** tab at the path `/admin/mcp
 default `/mcp`, since Caddy then hides the path from the site's domains, and oxploy gives
 the site the token and passes its tools on to the organization's tokens.
 
-A link shared with a `utm_source`, such as `https://vitor.ws/blog/<slug>?utm_source=linkedin`,
-shows in the tools as a campaign, which tells which share brought readers.
+A link shared with UTM tags, such as
+`https://vitor.ws/blog/<slug>?utm_source=linkedin&utm_medium=post&utm_campaign=oxploy-launch`,
+shows in `/admin` and the tools as a campaign, which tells which share brought readers.
 
 The server answers each JSON-RPC message, sent by POST, with plain JSON, with no session
 and no event stream, in `src/app/admin/mcp.rs`. Each tool is a file of its own in

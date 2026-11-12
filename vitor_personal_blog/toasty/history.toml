@@ -9,3 +9,8 @@ snapshot_name = "0000_snapshot.toml"
 id = 4189174224130298350
 name = "0001_create_visits_and_admin.sql"
 snapshot_name = "0001_snapshot.toml"
+
+[[migrations]]
+id = 5684371274212218166
+name = "0002_add_utm_tags.sql"
+snapshot_name = "0002_snapshot.toml"
