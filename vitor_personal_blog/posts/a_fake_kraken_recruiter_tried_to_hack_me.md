@@ -3,8 +3,8 @@ title: "A fake Kraken recruiter tried to hack me"
 subtitle: "A job interview, a repository to run, and malware hidden on line 601"
 description: "A fake Kraken recruiter asked me to run a project in my first interview. It hid malware: the same playbook that cost Binance $6.3 billion."
 tags: ["security", "malware", "north-korea", "binance", "ai"]
-date: "2026-11-07t20:45:00"
-ready: false
+date: "2026-11-12t16:00:00"
+ready: true
 ---
 
 A recruiter reached out with a good job at Kraken. In the first interview, he
